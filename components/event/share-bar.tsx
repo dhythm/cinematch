@@ -1,11 +1,24 @@
 'use client'
 
 import { Check, Copy, KeyRound, Link2 } from 'lucide-react'
-import { useState, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { copyText } from '@/lib/clipboard'
 import { cn } from '@/lib/utils'
 
 const noop = () => () => {}
+
+/** コピーできなかったときに、そのまま Cmd+C できるよう選択しておく */
+function selectContents(node: Node | null) {
+  if (!node) return
+  const selection = window.getSelection()
+  if (!selection) return
+  const range = document.createRange()
+  range.selectNodeContents(node)
+  selection.removeAllRanges()
+  selection.addRange(range)
+}
 
 /** 本番・プレビュー・ローカルのどこでも、表示中のサイトの URL を共有する（SSR 時はパスのみ） */
 function useOrigin() {
@@ -26,16 +39,18 @@ type Props = {
 
 export function ShareBar({ path, label, secret = false }: Props) {
   const [copied, setCopied] = useState(false)
+  const urlRef = useRef<HTMLSpanElement>(null)
   const url = `${useOrigin()}${path}`
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(url)
-    } catch {
-      // Clipboard may be blocked inside the preview iframe; still show feedback.
+    if (await copyText(url)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+      return
     }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
+    // クリップボードを触れない環境（プライベートブラウジングや iframe の中など）では手動コピーに逃がす
+    selectContents(urlRef.current)
+    toast.error('コピーできませんでした', { description: 'URLを選択したので、そのままコピーしてください' })
   }
 
   return (
@@ -52,7 +67,10 @@ export function ShareBar({ path, label, secret = false }: Props) {
       )}
       <p className="min-w-0 flex-1 truncate font-mono text-sm">
         <span className="sr-only">{`${label} `}</span>
-        {url}
+        {/* select-all で、タップ 1 回でも URL 全体を選べるようにする */}
+        <span ref={urlRef} className="select-all">
+          {url}
+        </span>
       </p>
       <Button type="button" size="sm" onClick={copy} className="shrink-0">
         {copied ? <Check aria-hidden /> : <Copy aria-hidden />}

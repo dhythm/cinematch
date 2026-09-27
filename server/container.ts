@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { todayInJapan } from '@/lib/date'
-import { createDatabase, type Database } from './db/client'
+import { createDatabase } from './db/client'
 import { seedDatabase } from './db/seed'
 import { createDrizzleEventRepository } from './events/drizzle-event-repository'
 import { createEventService, type EventService } from './events/event-service'
