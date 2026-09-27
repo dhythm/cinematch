@@ -28,7 +28,7 @@ describe('syncMovies', () => {
 
     const result = await syncMovies({ db, providers: [tmdb], range: RANGE })
 
-    expect(result).toEqual({ saved: 2, failures: [] })
+    expect(result).toEqual({ providers: ['tmdb'], saved: 2, failures: [] })
     expect(tmdb.fetchMovies).toHaveBeenCalledWith(RANGE)
     const rows = await db.select().from(movies)
     expect(rows.map((row) => row.id).sort()).toEqual(['a', 'b'])
@@ -54,7 +54,7 @@ describe('syncMovies', () => {
       range: RANGE,
     })
 
-    expect(result).toEqual({ saved: 1, failures: [{ provider: 'broken', error }] })
+    expect(result).toEqual({ providers: ['broken', 'tmdb'], saved: 1, failures: [{ provider: 'broken', error }] })
     expect((await db.select().from(movies)).map((row) => row.id)).toEqual(['a'])
   })
 
@@ -67,8 +67,8 @@ describe('syncMovies', () => {
     expect(rows[0]?.releaseDate).toBe('2026-10-15')
   })
 
-  it('プロバイダが無ければ DB に触らない', async () => {
-    expect(await syncMovies({ db, providers: [], range: RANGE })).toEqual({ saved: 0, failures: [] })
+  it('プロバイダが無ければ DB に触らず、取り込み元が空だと分かるようにする', async () => {
+    expect(await syncMovies({ db, providers: [], range: RANGE })).toEqual({ providers: [], saved: 0, failures: [] })
     expect(await db.select().from(movies)).toEqual([])
   })
 })
@@ -94,7 +94,7 @@ describe('syncExternalMovies', () => {
   it('外部ソースが無ければ何もしない', async () => {
     const result = await syncExternalMovies({ db, env: {}, today: () => '2026-09-27' })
 
-    expect(result).toEqual({ saved: 0, failures: [] })
+    expect(result).toEqual({ providers: [], saved: 0, failures: [] })
     expect(await db.select().from(movies)).toEqual([])
   })
 
