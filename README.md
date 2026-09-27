@@ -109,6 +109,31 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 - シードデータ（`server/db/seed.ts`）: ダミー映画 6 本（公開日は実行日からの相対日）とデモイベント `/e/demo`。開発時は起動のたびに冪等に投入され、映画の公開日は今日基準に更新される。他の環境には `pnpm db:seed` で入れる。外部 API は呼ばない。
 - スキーマ変更: `server/db/schema.ts` を編集 → `pnpm db:generate` → 生成された `drizzle/*.sql` をコミット。
 
+#### バックアップと復元
+
+`pnpm db:dump` / `pnpm db:restore` は、ホストに `pg_dump` / `psql` が無くても動くよう `compose.yaml` と同じ PostgreSQL イメージのコンテナで実行する（Docker が必要）。対象は `public` スキーマのみで、drizzle の適用履歴（`drizzle` スキーマ）は含まない。
+
+```bash
+pnpm db:dump                    # スキーマ + データ → backups/<host>-<日時>.sql
+pnpm db:dump --data-only        # データのみ → backups/<host>-<日時>-data.sql
+pnpm db:restore <ファイル>       # 流し込む（ON_ERROR_STOP=1。途中で失敗したら止まる）
+```
+
+リモート（Neon など）へ `db:restore` するときは、事故防止のため `--yes` を明示する。`backups/` は gitignore 済み。
+
+マイグレーションをスカッシュする（複数の `drizzle/*.sql` を 1 本にまとめ直す）手順:
+
+```bash
+pnpm db:dump --data-only                      # 1. データを退避
+rm drizzle/*.sql drizzle/meta/*.json          # 2. 既存のマイグレーションを捨てて
+echo '{"version":"7","dialect":"postgresql","entries":[]}' > drizzle/meta/_journal.json
+pnpm db:generate --name init                  # 3. 現在のスキーマから 1 本生成
+# 4. DB のスキーマを作り直す（public / drizzle スキーマを drop してから）
+pnpm db:migrate
+pnpm db:restore backups/<退避したファイル>      # 5. データを戻す
+```
+
+データのみのダンプにはシーケンスの `setval` も含まれるので、復元後もそのまま追記できる。
 
 ## 開発コマンド
 
@@ -132,6 +157,8 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 | `pnpm movies:sync` | TMDB の公開予定作品を `movies` テーブルに取り込む（cron 用） |
 | `pnpm db:studio` | Drizzle Studio |
 | `pnpm db:query "<SQL>"` | SQL を実行して結果を表示 |
+| `pnpm db:dump [--data-only] [出力先]` | DB をダンプ（既定は `backups/<host>-<日時>.sql`） |
+| `pnpm db:restore <ファイル> [--yes]` | ダンプを流し込む（リモートへは `--yes` が必須） |
 
 ### エージェントによる動作確認
 

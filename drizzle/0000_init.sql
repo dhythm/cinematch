@@ -16,7 +16,21 @@ CREATE TABLE "events" (
 	"memo" text,
 	"deadline" date,
 	"decided_candidate_id" text,
+	"organizer_key_hash" text,
 	"created_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "movies" (
+	"id" text PRIMARY KEY NOT NULL,
+	"title" text NOT NULL,
+	"original_title" text,
+	"release_date" date NOT NULL,
+	"runtime" integer,
+	"genres" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"poster" text NOT NULL,
+	"distributor" text,
+	"synopsis" text DEFAULT '' NOT NULL,
+	"source" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "participants" (
@@ -29,5 +43,15 @@ CREATE TABLE "participants" (
 	CONSTRAINT "participants_event_id_id_pk" PRIMARY KEY("event_id","id")
 );
 --> statement-breakpoint
+CREATE TABLE "reservations" (
+	"event_id" text PRIMARY KEY NOT NULL,
+	"theater" text NOT NULL,
+	"showtime" text,
+	"note" text,
+	"reserved_by" text,
+	"reserved_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "candidates" ADD CONSTRAINT "candidates_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "participants" ADD CONSTRAINT "participants_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "participants" ADD CONSTRAINT "participants_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "reservations" ADD CONSTRAINT "reservations_event_id_events_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE cascade ON UPDATE no action;
