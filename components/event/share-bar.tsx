@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { Check, Copy, Link2 } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 export function ShareBar({ eventId }: { eventId: string }) {
@@ -21,7 +21,8 @@ export function ShareBar({ eventId }: { eventId: string }) {
   return (
     <div className="flex items-center gap-2 rounded-xl border border-dashed border-primary/40 bg-card p-2 pl-4">
       <Link2 className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      <p className="min-w-0 flex-1 truncate font-mono text-sm" aria-label="共有URL">
+      <p className="min-w-0 flex-1 truncate font-mono text-sm">
+        <span className="sr-only">共有URL </span>
         {url}
       </p>
       <Button type="button" size="sm" onClick={copy} className="shrink-0">

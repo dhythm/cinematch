@@ -30,3 +30,12 @@ next-env.d.ts
 /tasks/
 
 .DS_Store
+
+# testing
+/coverage
+/test-results/
+/playwright-report/
+/blob-report/
+
+# pglite data dir (DATA_STORE=pglite)
+/.pglite/

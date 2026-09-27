@@ -5,10 +5,10 @@ export type Movie = {
   title: string
   originalTitle?: string
   releaseDate: string
-  runtime: number
+  runtime?: number
   genres: string[]
   poster: string
-  distributor: string
+  distributor?: string
   synopsis: string
   source: MovieSource
 }
@@ -32,11 +32,35 @@ export type Participant = {
 
 export type ScheduleEvent = {
   id: string
-  movieId: string
+  /** 作成時点の作品情報。外部ソースの変化に影響されないようスナップショットで持つ */
+  movie: Movie
   title: string
+  organizer?: string
   memo?: string
   deadline?: string
   candidates: Candidate[]
   participants: Participant[]
   decidedCandidateId?: string
+  createdAt: string
+}
+
+export type CandidateTally = {
+  yes: number
+  maybe: number
+  no: number
+  score: number
+}
+
+/** サーバーで集計済みのイベント。クライアントはこれを表示するだけ */
+export type EventView = ScheduleEvent & {
+  tallies: Record<string, CandidateTally>
+  best?: { candidateId: string } & CandidateTally
+}
+
+export type EventSummary = {
+  id: string
+  title: string
+  poster: string
+  respondentCount: number
+  decidedCandidate?: Candidate
 }

@@ -2,29 +2,44 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { ShareBar } from './share-bar'
-import { DecisionPanel } from './decision-panel'
-import { AnswerTable } from './answer-table'
+import { useDecide, useReopen, useSaveParticipant } from '@/lib/api/queries'
+import type { EventView } from '@/lib/types'
+import type { SaveParticipantInput } from '@/server/events/event-service'
 import { AnswerForm } from './answer-form'
-import { findBestCandidate } from '@/lib/date'
-import type { Movie, Participant, ScheduleEvent } from '@/lib/types'
+import { AnswerTable } from './answer-table'
+import { DecisionPanel } from './decision-panel'
+import { ShareBar } from './share-bar'
 
-export function EventBoard({ event, movie }: { event: ScheduleEvent; movie: Movie }) {
-  const [participants, setParticipants] = useState<Participant[]>(event.participants)
-  const [decidedId, setDecidedId] = useState<string | undefined>(event.decidedCandidateId)
+const showError = (error: Error) => toast.error(error.message)
+
+export function EventBoard({ event }: { event: EventView }) {
   const [editingId, setEditingId] = useState<string | null>(null)
+  const saveParticipant = useSaveParticipant(event.id)
+  const decide = useDecide(event.id)
+  const reopen = useReopen(event.id)
 
-  const best = findBestCandidate(event.candidates, participants)
-  const editing = participants.find((p) => p.id === editingId)
+  const editing = event.participants.find((p) => p.id === editingId)
+  const best = event.best && {
+    ...event.best,
+    candidate: event.candidates.find((c) => c.id === event.best?.candidateId),
+  }
 
-  function handleSave(participant: Participant) {
-    setParticipants((prev) => {
-      const exists = prev.some((p) => p.id === participant.id)
-      return exists ? prev.map((p) => (p.id === participant.id ? participant : p)) : [...prev, participant]
+  function handleSave(input: SaveParticipantInput) {
+    saveParticipant.mutate(input, {
+      onSuccess: () => {
+        toast.success(editing ? `${input.name}さんの回答を更新しました` : `${input.name}さんの回答を追加しました`)
+        setEditingId(null)
+        document.getElementById('answers')?.scrollIntoView({ behavior: 'smooth' })
+      },
+      onError: showError,
     })
-    toast.success(editing ? `${participant.name}さんの回答を更新しました` : `${participant.name}さんの回答を追加しました`)
-    setEditingId(null)
-    document.getElementById('answers')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  function handleDecide(candidateId: string) {
+    decide.mutate(candidateId, {
+      onSuccess: () => toast.success('日程を決定しました', { description: 'メンバーに共有して予約へ進みましょう' }),
+      onError: showError,
+    })
   }
 
   function handleEdit(id: string) {
@@ -44,32 +59,32 @@ export function EventBoard({ event, movie }: { event: ScheduleEvent; movie: Movi
       <ShareBar eventId={event.id} />
 
       <DecisionPanel
-        movie={movie}
+        movie={event.movie}
         candidates={event.candidates}
-        best={best}
-        total={participants.length}
-        decidedId={decidedId}
-        onDecide={(id) => {
-          setDecidedId(id)
-          toast.success('日程を決定しました', { description: 'メンバーに共有して予約へ進みましょう' })
-        }}
-        onReopen={() => setDecidedId(undefined)}
+        best={best?.candidate && { ...best, candidate: best.candidate }}
+        total={event.participants.length}
+        decidedId={event.decidedCandidateId}
+        pending={decide.isPending || reopen.isPending}
+        onDecide={handleDecide}
+        onReopen={() => reopen.mutate(undefined, { onError: showError })}
       />
 
       <AnswerTable
         candidates={event.candidates}
-        participants={participants}
-        bestId={best?.candidate.id}
-        decidedId={decidedId}
+        participants={event.participants}
+        tallies={event.tallies}
+        bestId={event.best?.candidateId}
+        decidedId={event.decidedCandidateId}
         onEdit={handleEdit}
-        onDecide={setDecidedId}
+        onDecide={handleDecide}
       />
 
-      {!decidedId && (
+      {!event.decidedCandidateId && (
         <AnswerForm
-          key={editingId ?? 'new'}
+          key={editingId ?? `new-${event.participants.length}`}
           candidates={event.candidates}
           initial={editing}
+          pending={saveParticipant.isPending}
           onSave={handleSave}
           onCancel={editing ? () => setEditingId(null) : undefined}
         />

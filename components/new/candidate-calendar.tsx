@@ -1,4 +1,4 @@
-import { HOLIDAYS, addDays, dayOfWeek, diffDays, formatJaDate, parseDate } from '@/lib/date'
+import { addDays, dayOfWeek, diffDays, formatJaDate, HOLIDAYS, parseDate } from '@/lib/date'
 import { cn } from '@/lib/utils'
 
 const HEAD = ['日', '月', '火', '水', '木', '金', '土']
@@ -69,7 +69,9 @@ export function CandidateCalendar({ releaseDate, rangeDays, selected, onToggle }
                 {date.getDate()}
               </span>
               {offset === 0 && (
-                <span className="rounded-sm bg-accent px-1 text-[9px] leading-tight font-bold text-accent-foreground">公開</span>
+                <span className="rounded-sm bg-accent px-1 text-[9px] leading-tight font-bold text-accent-foreground">
+                  公開
+                </span>
               )}
               {holiday && offset !== 0 && inRange && (
                 <span className="max-w-full truncate px-0.5 text-[9px] leading-tight opacity-80">祝</span>

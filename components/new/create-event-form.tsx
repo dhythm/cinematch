@@ -1,17 +1,19 @@
 'use client'
 
-import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useCreateEvent } from '@/lib/api/queries'
+import { addDays, diffDays, formatMonthDay, isOffDay, SLOT_LABELS, SLOT_ORDER, weekday } from '@/lib/date'
+import { rememberEvent } from '@/lib/my-events'
+import type { Movie, TimeSlot } from '@/lib/types'
+import { cn } from '@/lib/utils'
 import { CandidateCalendar } from './candidate-calendar'
 import { SlotPicker } from './slot-picker'
-import { SLOT_LABELS, SLOT_ORDER, addDays, diffDays, formatMonthDay, isOffDay, weekday } from '@/lib/date'
-import { cn } from '@/lib/utils'
-import type { Movie, TimeSlot } from '@/lib/types'
 
 const RANGE_OPTIONS = [
   { days: 7, label: '1週間' },
@@ -28,7 +30,10 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(defaultDates(movie.releaseDate, 14)))
   const [slots, setSlots] = useState<Set<TimeSlot>>(() => new Set<TimeSlot>(['noon', 'evening']))
   const [title, setTitle] = useState(`『${movie.title}』を観に行く会`)
-  const [submitting, setSubmitting] = useState(false)
+  const [organizer, setOrganizer] = useState('')
+  const [deadline, setDeadline] = useState(() => addDays(movie.releaseDate, -4))
+  const [memo, setMemo] = useState('')
+  const createEvent = useCreateEvent()
 
   const activeDates = useMemo(
     () =>
@@ -68,9 +73,25 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
       toast.error('候補日と時間帯を1つ以上選んでください')
       return
     }
-    setSubmitting(true)
-    toast.success('調整ページを作成しました', { description: 'URLを仲間に共有しましょう' })
-    router.push('/e/demo')
+    createEvent.mutate(
+      {
+        movieId: movie.id,
+        title,
+        organizer,
+        memo,
+        deadline: deadline || undefined,
+        dates: activeDates,
+        slots: orderedSlots,
+      },
+      {
+        onSuccess: (event) => {
+          rememberEvent(event.id)
+          toast.success('調整ページを作成しました', { description: 'URLを仲間に共有しましょう' })
+          router.push(`/e/${event.id}`)
+        },
+        onError: (error) => toast.error(error.message),
+      },
+    )
   }
 
   return (
@@ -117,7 +138,9 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
           </button>
           <button
             type="button"
-            onClick={() => setSelected(new Set(Array.from({ length: rangeDays }, (_, i) => addDays(movie.releaseDate, i))))}
+            onClick={() =>
+              setSelected(new Set(Array.from({ length: rangeDays }, (_, i) => addDays(movie.releaseDate, i))))
+            }
             className="rounded-full border border-border bg-card px-3 py-1.5 hover:border-primary"
           >
             全日選択
@@ -140,7 +163,10 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
         <SlotPicker selected={slots} onToggle={toggleSlot} />
       </fieldset>
 
-      <section aria-labelledby="preview-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+      <section
+        aria-labelledby="preview-title"
+        className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
+      >
         <div className="flex items-baseline justify-between">
           <h2 id="preview-title" className="font-bold">
             候補プレビュー
@@ -180,14 +206,22 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="organizer">幹事の名前</Label>
-            <Input id="organizer" placeholder="例：はるか" className="h-11 bg-card" />
+            <Input
+              id="organizer"
+              value={organizer}
+              onChange={(e) => setOrganizer(e.target.value)}
+              placeholder="例：はるか"
+              maxLength={20}
+              className="h-11 bg-card"
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="deadline">回答締切</Label>
             <Input
               id="deadline"
               type="date"
-              defaultValue={addDays(movie.releaseDate, -4)}
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
               className="h-11 bg-card font-mono"
             />
           </div>
@@ -196,6 +230,9 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
           <Label htmlFor="memo">メモ（任意）</Label>
           <Textarea
             id="memo"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            maxLength={500}
             placeholder="例：IMAXで観たい！決まったら幹事がまとめて予約します"
             className="min-h-24 bg-card"
           />
@@ -203,8 +240,12 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
       </fieldset>
 
       <div className="sticky bottom-4 z-20">
-        <Button type="submit" disabled={submitting} className="h-12 w-full rounded-xl text-base font-bold shadow-lg">
-          {submitting ? '作成中…' : `${candidateCount}枠で調整ページをつくる`}
+        <Button
+          type="submit"
+          disabled={createEvent.isPending || createEvent.isSuccess}
+          className="h-12 w-full rounded-xl text-base font-bold shadow-lg"
+        >
+          {createEvent.isPending || createEvent.isSuccess ? '作成中…' : `${candidateCount}枠で調整ページをつくる`}
         </Button>
       </div>
     </form>

@@ -1,12 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { CalendarDays, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { MovieCard } from './movie-card'
+import { moviesQuery } from '@/lib/api/queries'
 import { formatJaDate } from '@/lib/date'
-import { cn } from '@/lib/utils'
 import type { Movie, MovieSource } from '@/lib/types'
+import { cn } from '@/lib/utils'
+import { MovieCard } from './movie-card'
 
 type SourceFilter = 'all' | MovieSource
 
@@ -16,7 +18,10 @@ const SOURCE_TABS: { value: SourceFilter; label: string; hint: string }[] = [
   { value: 'tmdb', label: 'TMDB', hint: 'Upcoming API' },
 ]
 
-export function ReleaseBrowser({ movies }: { movies: Movie[] }) {
+const NO_MOVIES: Movie[] = []
+
+export function ReleaseBrowser() {
+  const { data: movies = NO_MOVIES, isPending, isError } = useQuery(moviesQuery())
   const [query, setQuery] = useState('')
   const [source, setSource] = useState<SourceFilter>('all')
 
@@ -47,9 +52,7 @@ export function ReleaseBrowser({ movies }: { movies: Movie[] }) {
           <h2 id="releases-title" className="text-2xl font-black tracking-tight">
             公開予定の映画
           </h2>
-          <p className="text-sm text-muted-foreground">
-            {'作品を選んで「日程を調整する」から候補日を作成できます'}
-          </p>
+          <p className="text-sm text-muted-foreground">{'作品を選んで「日程を調整する」から候補日を作成できます'}</p>
         </div>
 
         <div className="flex flex-col gap-2 md:items-end">
@@ -70,12 +73,15 @@ export function ReleaseBrowser({ movies }: { movies: Movie[] }) {
               </button>
             ))}
           </div>
-          <p className="font-mono text-xs text-muted-foreground">{`${activeHint} · 最終同期 9/27 06:00`}</p>
+          <p className="font-mono text-xs text-muted-foreground">{activeHint}</p>
         </div>
       </div>
 
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Search
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
         <label htmlFor="movie-search" className="sr-only">
           作品名・ジャンルで検索
         </label>
@@ -88,7 +94,13 @@ export function ReleaseBrowser({ movies }: { movies: Movie[] }) {
         />
       </div>
 
-      {grouped.length === 0 ? (
+      {isPending ? (
+        <p className="py-12 text-center text-sm text-muted-foreground">読み込み中…</p>
+      ) : isError ? (
+        <p className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-destructive">
+          作品一覧を取得できませんでした
+        </p>
+      ) : grouped.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
           該当する作品が見つかりませんでした
         </p>

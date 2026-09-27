@@ -1,9 +1,9 @@
 'use client'
 
 import { Pencil } from 'lucide-react'
-import { ANSWER_SYMBOL, SLOT_LABELS, formatMonthDay, tallyCandidate, weekday, dayOfWeek, HOLIDAYS } from '@/lib/date'
+import { ANSWER_SYMBOL, dayOfWeek, formatMonthDay, HOLIDAYS, SLOT_LABELS, weekday } from '@/lib/date'
+import type { Answer, Candidate, CandidateTally, Participant } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import type { Answer, Candidate, Participant } from '@/lib/types'
 
 const ANSWER_STYLE: Record<Answer, string> = {
   yes: 'text-primary font-black',
@@ -14,13 +14,14 @@ const ANSWER_STYLE: Record<Answer, string> = {
 type Props = {
   candidates: Candidate[]
   participants: Participant[]
+  tallies: Record<string, CandidateTally>
   bestId?: string
   decidedId?: string
   onEdit: (id: string) => void
   onDecide: (id: string) => void
 }
 
-export function AnswerTable({ candidates, participants, bestId, decidedId, onEdit, onDecide }: Props) {
+export function AnswerTable({ candidates, participants, tallies, bestId, decidedId, onEdit, onDecide }: Props) {
   const highlightId = decidedId ?? bestId
   const comments = participants.filter((p) => p.comment)
 
@@ -53,7 +54,9 @@ export function AnswerTable({ candidates, participants, bestId, decidedId, onEdi
                     aria-label={`${p.name}さんの回答を編集`}
                   >
                     {p.name}
-                    {!decidedId && <Pencil className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" aria-hidden />}
+                    {!decidedId && (
+                      <Pencil className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" aria-hidden />
+                    )}
                   </button>
                 </th>
               ))}
@@ -61,15 +64,12 @@ export function AnswerTable({ candidates, participants, bestId, decidedId, onEdi
           </thead>
           <tbody>
             {candidates.map((c) => {
-              const t = tallyCandidate(c.id, participants)
+              const t = tallies[c.id] ?? { yes: 0, maybe: 0, no: 0 }
               const highlighted = c.id === highlightId
               const dow = dayOfWeek(c.date)
               const red = dow === 0 || c.date in HOLIDAYS
               return (
-                <tr
-                  key={c.id}
-                  className={cn('border-b border-border last:border-b-0', highlighted && 'bg-accent/35')}
-                >
+                <tr key={c.id} className={cn('border-b border-border last:border-b-0', highlighted && 'bg-accent/35')}>
                   <th
                     scope="row"
                     className={cn(
@@ -86,7 +86,12 @@ export function AnswerTable({ candidates, participants, bestId, decidedId, onEdi
                       title={decidedId ? undefined : 'クリックでこの回に決定'}
                     >
                       <span className="font-mono">{formatMonthDay(c.date)}</span>
-                      <span className={cn('text-xs', red ? 'text-destructive' : dow === 6 ? 'text-primary' : 'text-muted-foreground')}>
+                      <span
+                        className={cn(
+                          'text-xs',
+                          red ? 'text-destructive' : dow === 6 ? 'text-primary' : 'text-muted-foreground',
+                        )}
+                      >
                         {`(${weekday(c.date)})`}
                       </span>
                       <span className="font-bold">{SLOT_LABELS[c.slot].label}</span>

@@ -10,9 +10,7 @@ export function HomeHero() {
   return (
     <section aria-labelledby="hero-title" className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
-        <p className="w-fit rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
-          しねま × まっち
-        </p>
+        <p className="w-fit rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">しねま × まっち</p>
         <h1 id="hero-title" className="text-3xl font-black leading-snug text-balance md:text-5xl md:leading-tight">
           {'観たい映画、'}
           <br className="md:hidden" />
