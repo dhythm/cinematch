@@ -17,7 +17,7 @@ const json = (method: string, body: unknown) =>
 beforeEach(() => {
   vi.useFakeTimers({ now: new Date('2026-09-27T00:00:00+09:00'), toFake: ['Date'] })
   vi.stubEnv('MOVIE_SOURCE', 'fixture')
-  vi.stubEnv('DATA_STORE', 'memory')
+  vi.stubEnv('DATABASE_URL', '')
   delete (globalThis as { __cinematchContainer?: unknown }).__cinematchContainer
   return () => {
     vi.useRealTimers()

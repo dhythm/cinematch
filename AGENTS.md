@@ -110,5 +110,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `pnpm check` (Biome lint/format, `tsc`, knip, Vitest) must pass before committing
 - `pnpm e2e` for Playwright (stop your own `next dev` first; only one per directory)
 - `pnpm browser ...` (agent-browser) for ad-hoc UI checks against `pnpm dev`
-- `DATA_STORE=pglite PGLITE_DATA_DIR=.pglite pnpm dev` + `pnpm db:pglite "<SQL>"` to inspect persisted data
+- Use `pnpm dev:pglite` (not Docker) as a coding agent: data persists in `.pglite/`, and `pnpm db:query "<SQL>"` works while the server is running
+- Schema changes: edit `server/db/schema.ts` → `pnpm db:generate` → commit `drizzle/*.sql`; never hand-edit generated migrations
 - See README.md "アーキテクチャ" for where server-side logic lives (`server/`), and keep business logic out of components

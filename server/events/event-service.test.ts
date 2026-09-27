@@ -1,18 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { createDatabase } from '@/server/db/client'
 import { createFixtureProvider } from '@/server/movies/fixtures'
 import { createMovieCatalog } from '@/server/movies/movie-catalog'
 import { DomainError } from '../domain/errors'
+import { createDrizzleEventRepository } from './drizzle-event-repository'
 import { createEventService } from './event-service'
-import { createInMemoryEventRepository } from './in-memory-event-repository'
 
 const today = () => '2026-09-27'
 // fixture 'itetsuku' は today + 12 日 = 2026-10-09 公開
 const RELEASE = '2026-10-09'
 
-function setup() {
+async function setup() {
+  const { db, migrate } = await createDatabase({})
+  await migrate()
   let seq = 0
   return createEventService({
-    repository: createInMemoryEventRepository(),
+    repository: createDrizzleEventRepository(db),
     catalog: createMovieCatalog({ providers: [createFixtureProvider({ today })], today }),
     generateId: () => `id${++seq}`,
     now: () => new Date('2026-09-27T00:00:00Z'),
@@ -28,10 +31,10 @@ const createInput = {
 }
 
 describe('EventService', () => {
-  let service: ReturnType<typeof setup>
+  let service: Awaited<ReturnType<typeof setup>>
 
-  beforeEach(() => {
-    service = setup()
+  beforeEach(async () => {
+    service = await setup()
   })
 
   describe('create', () => {

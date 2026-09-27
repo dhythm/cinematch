@@ -20,11 +20,12 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
-    command: `pnpm dev --port ${PORT}`,
+    // 使い捨てのインメモリ PGlite サーバーを立て、その DATABASE_URL で dev サーバーを起動する
+    command: `pglite-server --db=memory:// --port=${PORT + 1} --max-connections=10 --include-database-url --run="next dev --port ${PORT}"`,
     url: `${baseURL}/api/movies`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    // 外部 API に依存せず、プロセス内メモリの fixture データで検証する
-    env: { MOVIE_SOURCE: 'fixture', DATA_STORE: 'memory' },
+    // 外部 API に依存せず fixture データで検証する
+    env: { MOVIE_SOURCE: 'fixture' },
   },
 })
