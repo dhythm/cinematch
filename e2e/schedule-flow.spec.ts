@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 
 test('作品を選んで調整ページを作り、回答して日程を決定できる', async ({ page }) => {
   await page.goto('/')
+  await expect(page).toHaveTitle(/しねまっちゃん/)
+  await expect(page.getByRole('link', { name: 'しねまっちゃん ホーム' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '公開予定の映画' })).toBeVisible()
 
   await page
