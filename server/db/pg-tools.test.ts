@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defaultDumpPath, isRemote, toContainerUrl } from './pg-tools'
+import { defaultDumpPath, isRemote, pgImage, toContainerUrl } from './pg-tools'
 
 const NEON = 'postgresql://user:pw@ep-x.ap-southeast-1.aws.neon.tech/neondb?sslmode=require'
 const LOCAL = 'postgresql://cinematchan:cinematchan@localhost:5432/cinematchan'
@@ -28,6 +28,18 @@ describe('isRemote', () => {
 
   it('それ以外はリモート扱い（確認なしの書き込みを防ぐ）', () => {
     expect(isRemote(NEON)).toBe(true)
+  })
+})
+
+describe('pgImage', () => {
+  it('サーバーのメジャーバージョンに合わせたイメージを選ぶ（pg_dump はサーバー以上が必要）', () => {
+    expect(pgImage(180006)).toBe('postgres:18-alpine') // Neon の PostgreSQL 18.6
+    expect(pgImage(170011)).toBe('postgres:17-alpine') // compose.yaml の PostgreSQL 17
+  })
+
+  it('バージョンが分からないときは compose.yaml と同じイメージにする', () => {
+    expect(pgImage(undefined)).toBe('postgres:17-alpine')
+    expect(pgImage(Number.NaN)).toBe('postgres:17-alpine')
   })
 })
 

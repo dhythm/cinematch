@@ -45,6 +45,7 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 | --- | --- |
 | `TMDB_API_TOKEN` | 設定すると TMDB から取り込む（discover region=JP → 作品詳細の release_dates で日本の公開日・上映時間を補完。日本公開の無い作品は除外）。リクエスト時ではなく取り込み時にだけ使う |
 | `SEED=false` | 開発時の起動時シードを止める。代わりに起動時に TMDB から実データを取り込む |
+| `CRON_SECRET` | Vercel Cron が `/api/cron/movies` に送る Bearer トークン。本番では必須 |
 | `DATABASE_URL` | PostgreSQL の接続先。未設定ならプロセス内 PGlite |
 | `PGLITE_DATA_DIR` | `DATABASE_URL` 未設定時の PGlite 保存先。未指定ならメモリ |
 
@@ -58,15 +59,16 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 - 実行タイミング:
   - `pnpm dev`（既定） … ダミー映画のシードのみ。TMDB は呼ばない
   - `SEED=false pnpm dev` … シードせず、起動時にバックグラウンドで 1 回だけ実データを取り込む（起動を待たせない。結果はログ）
-  - `pnpm movies:sync` … **手動 / cron ジョブ用のエントリポイント**。マイグレーション済みの DB に対して実行する
-  - 本番 … コールドスタートのたびに TMDB を叩かないよう、起動時の取り込みはせず cron の `pnpm movies:sync` に任せる
+  - `pnpm movies:sync` … **手動実行用のエントリポイント**。マイグレーション済みの DB に対して実行する
+  - 本番 … コールドスタートのたびに TMDB を叩かないよう起動時の取り込みはせず、Vercel Cron が毎日 `/api/cron/movies` を叩く（`vercel.json`、UTC 18:00 = JST 03:00）。`CRON_SECRET` が未設定だとこのエンドポイントは一律 401 を返す
 - 冪等なので何度実行してもよい。プロバイダ単位で失敗を切り離すので、1 つが落ちても残りは保存される（`movies:sync` は一部失敗で終了コード 1）。
 
 ### API
 
 | メソッド | パス | 内容 |
 | --- | --- | --- |
-| GET | `/api/movies` | 調整できる作品（DB のシード映画 + 外部ソース） |
+| GET | `/api/movies` | 調整できる作品（`movies` テーブル） |
+| GET | `/api/cron/movies` | TMDB の取り込み（Vercel Cron 専用。`CRON_SECRET` で認証） |
 | メソッド | パス | 内容 | 権限 |
 | --- | --- | --- | --- |
 | GET / POST | `/api/events` | サマリー取得（`?ids=a,b`）/ イベント作成（作成者に幹事クッキーを発行） | 誰でも |

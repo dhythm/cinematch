@@ -3,8 +3,19 @@
  * ホストに PostgreSQL クライアントが無くても、compose.yaml と同じイメージで実行できるようにする。
  */
 
-/** compose.yaml と揃える。pg_dump はサーバーと同じかそれ以上のバージョンが必要 */
-export const PG_IMAGE = 'postgres:17-alpine'
+/** バージョンが分からないときの既定。compose.yaml と揃える */
+const DEFAULT_PG_IMAGE = 'postgres:17-alpine'
+
+/**
+ * 接続先のサーバーに合わせたイメージを選ぶ。
+ * pg_dump はサーバーと同じかそれ以上のバージョンでないと動かないため、
+ * ローカル（PostgreSQL 17）と Neon（18 系）のどちらでも使えるようにする。
+ * server_version_num は 18.6 なら 180006 のように メジャー*10000 + マイナー で入る。
+ */
+export function pgImage(serverVersionNum: number | undefined) {
+  const major = Math.floor((serverVersionNum ?? Number.NaN) / 10000)
+  return Number.isFinite(major) && major > 0 ? `postgres:${major}-alpine` : DEFAULT_PG_IMAGE
+}
 
 /** コンテナから見たホスト。Docker Desktop が解決する */
 const HOST_FROM_CONTAINER = 'host.docker.internal'

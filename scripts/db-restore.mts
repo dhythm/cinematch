@@ -9,14 +9,26 @@
  *   2. マイグレーションをスカッシュして pnpm db:migrate で作り直す
  *   3. pnpm db:restore <退避したファイル>
  *
- * ホストに psql が無くても動くよう、compose.yaml と同じイメージのコンテナで実行する。
+ * ホストに psql が無くても動くよう、接続先のバージョンに合わせた PostgreSQL イメージのコンテナで実行する。
  * 途中でエラーが出たらそこで止まる（ON_ERROR_STOP=1）。
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import nextEnv from '@next/env'
+import pg from 'pg'
 import { PGLITE_SERVER_URL } from '@/server/db/config'
-import { isRemote, PG_IMAGE, toContainerUrl } from '@/server/db/pg-tools'
+import { isRemote, pgImage, toContainerUrl } from '@/server/db/pg-tools'
+
+/** pg_dump / psql のバージョンを合わせるため、接続先のサーバーバージョンを聞く */
+async function serverVersionNum(url: string) {
+  const pool = new pg.Pool({ connectionString: url })
+  try {
+    const { rows } = await pool.query<{ server_version_num: string }>('show server_version_num')
+    return Number(rows[0]?.server_version_num)
+  } finally {
+    await pool.end()
+  }
+}
 
 nextEnv.loadEnvConfig(process.cwd())
 
@@ -42,7 +54,18 @@ if (isRemote(url) && !yes) {
 
 const result = spawnSync(
   'docker',
-  ['run', '--rm', '-i', PG_IMAGE, 'psql', toContainerUrl(url), '-v', 'ON_ERROR_STOP=1', '-f', '-'],
+  [
+    'run',
+    '--rm',
+    '-i',
+    pgImage(await serverVersionNum(url)),
+    'psql',
+    toContainerUrl(url),
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-f',
+    '-',
+  ],
   { input: readFileSync(file, 'utf8'), encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 },
 )
 if (result.error) {

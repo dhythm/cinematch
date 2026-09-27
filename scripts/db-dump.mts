@@ -5,7 +5,7 @@
  *   pnpm db:dump --data-only           # データのみ。マイグレーションのスカッシュ前の退避用
  *   pnpm db:dump path/to/dump.sql      # 出力先を指定
  *
- * ホストに pg_dump が無くても動くよう、compose.yaml と同じイメージのコンテナで実行する。
+ * ホストに pg_dump が無くても動くよう、接続先のバージョンに合わせた PostgreSQL イメージのコンテナで実行する。
  * public スキーマだけを対象にするので、drizzle の適用履歴（drizzle スキーマ）は含まれない。
  * DATABASE_URL 未設定時は PGlite サーバー（pnpm dev:pglite / db:pglite）に接続する。
  */
@@ -13,8 +13,20 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import nextEnv from '@next/env'
+import pg from 'pg'
 import { PGLITE_SERVER_URL } from '@/server/db/config'
-import { defaultDumpPath, PG_IMAGE, toContainerUrl } from '@/server/db/pg-tools'
+import { defaultDumpPath, pgImage, toContainerUrl } from '@/server/db/pg-tools'
+
+/** pg_dump / psql のバージョンを合わせるため、接続先のサーバーバージョンを聞く */
+async function serverVersionNum(url: string) {
+  const pool = new pg.Pool({ connectionString: url })
+  try {
+    const { rows } = await pool.query<{ server_version_num: string }>('show server_version_num')
+    return Number(rows[0]?.server_version_num)
+  } finally {
+    await pool.end()
+  }
+}
 
 nextEnv.loadEnvConfig(process.cwd())
 
@@ -26,7 +38,7 @@ const out = args.find((arg) => !arg.startsWith('--')) ?? defaultDumpPath(url, { 
 const pgDump = [
   'run',
   '--rm',
-  PG_IMAGE,
+  pgImage(await serverVersionNum(url)),
   'pg_dump',
   toContainerUrl(url),
   '--schema=public',
