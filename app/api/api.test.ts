@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventSummary, EventView, Movie } from '@/lib/types'
 import * as decision from './events/[id]/decision/route'
+import * as participantById from './events/[id]/participants/[participantId]/route'
 import * as participants from './events/[id]/participants/route'
+import * as reservation from './events/[id]/reservation/route'
 import * as eventById from './events/[id]/route'
 import * as events from './events/route'
 import * as movies from './movies/route'
 
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) })
+const participantCtx = (id: string, participantId: string) => ({ params: Promise.resolve({ id, participantId }) })
 const json = (method: string, body: unknown) =>
   new Request('http://test/api', {
     method,
@@ -16,7 +19,6 @@ const json = (method: string, body: unknown) =>
 
 beforeEach(() => {
   vi.useFakeTimers({ now: new Date('2026-09-27T00:00:00+09:00'), toFake: ['Date'] })
-  vi.stubEnv('MOVIE_SOURCE', 'fixture')
   vi.stubEnv('DATABASE_URL', '')
   delete (globalThis as { __cinematchContainer?: unknown }).__cinematchContainer
   return () => {
@@ -92,6 +94,62 @@ describe('API', () => {
     const response = await participants.POST(json('POST', { name: 'x', answers: {} }), ctx('demo'))
 
     expect(response.status).toBe(409)
+  })
+})
+
+describe('API: 更新・削除・予約', () => {
+  async function createEvent() {
+    const response = await events.POST(
+      json('POST', { movieId: 'itetsuku', title: '観る会', dates: ['2026-10-09'], slots: ['noon', 'late'] }),
+    )
+    return (await response.json()) as EventView
+  }
+
+  it('PATCH でイベント情報を更新し、空文字で値を消せる', async () => {
+    const { id } = await createEvent()
+
+    const response = await eventById.PATCH(json('PATCH', { title: '改題', memo: '' }), ctx(id))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ title: '改題' })
+  })
+
+  it('DELETE でイベントを削除する', async () => {
+    const { id } = await createEvent()
+
+    expect((await eventById.DELETE(new Request('http://test'), ctx(id))).status).toBe(204)
+    expect((await eventById.GET(new Request('http://test'), ctx(id))).status).toBe(404)
+  })
+
+  it('DELETE で回答を削除する', async () => {
+    const { id } = await createEvent()
+    const answered = (await (
+      await participants.POST(json('POST', { name: 'A', answers: {} }), ctx(id))
+    ).json()) as EventView
+    const participantId = answered.participants[0]?.id ?? ''
+
+    const response = await participantById.DELETE(new Request('http://test'), participantCtx(id, participantId))
+
+    expect(((await response.json()) as EventView).participants).toEqual([])
+  })
+
+  it('決定後に予約を登録・取り消しできる', async () => {
+    const { id } = await createEvent()
+    await decision.PUT(json('PUT', { candidateId: '2026-10-09_noon' }), ctx(id))
+
+    const reserved = await reservation.PUT(json('PUT', { theater: 'TOHO新宿', showtime: '12:30' }), ctx(id))
+    expect(reserved.status).toBe(200)
+    expect(((await reserved.json()) as EventView).reservation).toMatchObject({ theater: 'TOHO新宿', showtime: '12:30' })
+
+    const cancelled = await reservation.DELETE(new Request('http://test'), ctx(id))
+    expect(((await cancelled.json()) as EventView).reservation).toBeUndefined()
+  })
+
+  it('未決定のイベントの予約は 409、不正な時刻は 400', async () => {
+    const { id } = await createEvent()
+
+    expect((await reservation.PUT(json('PUT', { theater: 'TOHO' }), ctx(id))).status).toBe(409)
+    expect((await reservation.PUT(json('PUT', { theater: 'TOHO', showtime: '25:00' }), ctx(id))).status).toBe(400)
   })
 })
 

@@ -25,7 +25,7 @@ export default defineConfig({
     url: `${baseURL}/api/movies`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    // 外部 API に依存せず fixture データで検証する
-    env: { MOVIE_SOURCE: 'fixture' },
+    // 外部 API に依存せず、起動時にシードしたダミー映画で検証する
+    env: { TMDB_API_TOKEN: '', EIGA_ICS_URL: '' },
   },
 })

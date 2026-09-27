@@ -22,9 +22,10 @@ type Props = {
   pending?: boolean
   onSave: (input: SaveParticipantInput) => void
   onCancel?: () => void
+  onDelete?: () => void
 }
 
-export function AnswerForm({ candidates, initial, pending = false, onSave, onCancel }: Props) {
+export function AnswerForm({ candidates, initial, pending = false, onSave, onCancel, onDelete }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [comment, setComment] = useState(initial?.comment ?? '')
   const [answers, setAnswers] = useState<Record<string, Answer>>(initial?.answers ?? {})
@@ -144,6 +145,17 @@ export function AnswerForm({ candidates, initial, pending = false, onSave, onCan
         </div>
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          {onDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onDelete}
+              disabled={pending}
+              className="h-11 text-destructive sm:mr-auto"
+            >
+              回答を削除
+            </Button>
+          )}
           {onCancel && (
             <Button type="button" variant="ghost" onClick={onCancel} className="h-11">
               キャンセル

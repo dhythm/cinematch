@@ -16,6 +16,12 @@ describe('apiFetch', () => {
     expect(new Headers(init?.headers).get('content-type')).toBe('application/json')
   })
 
+  it('204 は undefined を返す', async () => {
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 204 }))
+
+    await expect(apiFetch('/api/x', { method: 'DELETE' })).resolves.toBeUndefined()
+  })
+
   it('エラーレスポンスは ApiRequestError（ステータスとコード付き）にする', async () => {
     vi.stubGlobal('fetch', async () =>
       Response.json({ error: { code: 'not_found', message: 'event x not found' } }, { status: 404 }),

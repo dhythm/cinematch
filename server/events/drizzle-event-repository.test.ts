@@ -1,9 +1,7 @@
-import { createDatabase } from '@/server/db/client'
+import { freshTestDatabase } from '@/server/db/testing'
 import { createDrizzleEventRepository } from './drizzle-event-repository'
 import { describeEventRepositoryContract } from './event-repository.contract'
 
-describeEventRepositoryContract('DrizzleEventRepository (PGlite)', async () => {
-  const { db, migrate } = await createDatabase({})
-  await migrate()
-  return createDrizzleEventRepository(db)
-})
+describeEventRepositoryContract('DrizzleEventRepository (PGlite)', async () =>
+  createDrizzleEventRepository(await freshTestDatabase()),
+)

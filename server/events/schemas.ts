@@ -19,6 +19,32 @@ export const createEventSchema = z.object({
   slots: z.array(z.enum(['morning', 'noon', 'evening', 'late'])).min(1),
 })
 
+const nullableText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .transform((value) => value || null)
+    .optional()
+
+export const updateEventSchema = z.object({
+  title: z.string().trim().min(1).max(100).optional(),
+  organizer: nullableText(20),
+  memo: nullableText(500),
+  deadline: isoDate.nullable().optional(),
+})
+
+export const reserveSchema = z.object({
+  theater: z.string().trim().min(1).max(100),
+  showtime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
+  note: optionalText(200),
+  reservedBy: optionalText(20),
+})
+
 export const saveParticipantSchema = z.object({
   id: z.string().min(1).optional(),
   name: z.string().trim().min(1).max(20),

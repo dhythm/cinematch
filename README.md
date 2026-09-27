@@ -18,7 +18,7 @@ pnpm dev                     # http://localhost:3000 （/e/demo にデモイベ�
 ```
 Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ server/* ──▶ Drizzle ORM ──▶ PostgreSQL
    ▲                                                            │
-   └── Server Component で prefetch → HydrationBoundary ◀───────┘        MovieCatalog ──▶ TMDB / 映画.com ICS / fixture
+   └── Server Component で prefetch → HydrationBoundary ◀───────┘        MovieCatalog ──▶ movies テーブル / TMDB / 映画.com ICS
 ```
 
 - **集計・検証・候補生成はすべてサーバー側**。クライアントはサーバーが返す集計済みの `EventView`（`tallies` / `best`）を表示するだけ。
@@ -32,7 +32,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 | `server/events/` | `EventService`（ユースケース）と `EventRepository`（Drizzle 実装 + 契約テスト） |
 | `server/db/` | Drizzle スキーマと DB 接続（`DATABASE_URL` → node-postgres / 未設定 → プロセス内 PGlite） |
 | `drizzle/` | drizzle-kit が生成するマイグレーション SQL |
-| `server/movies/` | `MovieCatalog`（TTL キャッシュ付き集約）と各プロバイダ（TMDB / 映画.com ICS / fixture） |
+| `server/movies/` | `MovieCatalog`（TTL キャッシュ付き集約）と各プロバイダ（DB の movies テーブル / TMDB / 映画.com ICS） |
 | `server/container.ts` | 環境変数から依存を組み立て、`globalThis` に保持（HMR をまたいで DB 接続やキャッシュを維持） |
 | `lib/api/` | fetch クライアント、クエリキー、`queryOptions` / mutation hooks |
 | `components/` | UI（shadcn/ui ベース） |
@@ -43,9 +43,23 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 | --- | --- |
 | `TMDB_API_TOKEN` | 設定すると TMDB discover API（region=JP）から取得 |
 | `EIGA_ICS_URL` | 設定すると映画.com の iCalendar から取得 |
-| `MOVIE_SOURCE=fixture` | 外部 API を使わず fixture に固定（公開日は「今日」からの相対日） |
+| `SEED=false` | 開発時の起動時シードを止める |
 | `DATABASE_URL` | PostgreSQL の接続先。未設定ならプロセス内 PGlite |
 | `PGLITE_DATA_DIR` | `DATABASE_URL` 未設定時の PGlite 保存先。未指定ならメモリ |
+
+### API
+
+| メソッド | パス | 内容 |
+| --- | --- | --- |
+| GET | `/api/movies` | 調整できる作品（DB のシード映画 + 外部ソース） |
+| GET / POST | `/api/events` | サマリー取得（`?ids=a,b`）/ イベント作成 |
+| GET / PATCH / DELETE | `/api/events/:id` | 取得 / イベント情報の更新 / 削除 |
+| POST | `/api/events/:id/participants` | 回答の追加（`id` 指定で更新） |
+| DELETE | `/api/events/:id/participants/:participantId` | 回答の削除 |
+| PUT / DELETE | `/api/events/:id/decision` | 日程の決定 / 調整の再開（予約も解除） |
+| PUT / DELETE | `/api/events/:id/reservation` | 決定した回の予約（劇場・上映開始・メモ・予約者）の記録 / 取り消し |
+
+変更系はすべて集計済みの `EventView` を返す。決定後は回答の追加・削除はできず（409）、予約中は別の回に変更できない（409）。
 
 ### データベース（Drizzle ORM）
 
@@ -62,6 +76,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 - PGlite サーバーは複数接続に対応しているので、dev サーバー稼働中でも `pnpm db:query` / `psql` / `pnpm db:studio` で中身を見られる。
 - `drizzle-kit` と `pnpm db:query` は `DATABASE_URL` 未設定なら PGlite サーバーに接続する。
 - 本番（`NODE_ENV=production`）では起動時の自動マイグレーションをしないので、デプロイ手順で `pnpm db:migrate` を実行する。
+- シードデータ（`server/db/seed.ts`）: ダミー映画 6 本（公開日は実行日からの相対日）とデモイベント `/e/demo`。開発時は起動のたびに冪等に投入され、映画の公開日は今日基準に更新される。他の環境には `pnpm db:seed` で入れる。
 - スキーマ変更: `server/db/schema.ts` を編集 → `pnpm db:generate` → 生成された `drizzle/*.sql` をコミット。
 
 ## 開発コマンド
@@ -73,7 +88,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm knip` | 未使用ファイル・export・依存の検出 |
 | `pnpm test` | Vitest（`server` = node / `ui` = jsdom の 2 プロジェクト） |
-| `pnpm e2e` | Playwright（port 3100 で fixture + memory の dev サーバーを起動） |
+| `pnpm e2e` | Playwright（使い捨てのインメモリ PGlite サーバー + シードデータで dev サーバーを起動） |
 | `pnpm check` | lint + typecheck + knip + test |
 | `pnpm browser <cmd>` | agent-browser（エージェント向けブラウザ操作 CLI） |
 | `pnpm dev:pglite` | PGlite サーバー + dev サーバー（エージェント向け） |
@@ -81,6 +96,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 | `pnpm db:pglite` | PGlite サーバーだけを起動 |
 | `pnpm db:generate` | スキーマからマイグレーション SQL を生成 |
 | `pnpm db:migrate` | マイグレーションを適用 |
+| `pnpm db:seed [--reset]` | ダミー映画とデモイベントを投入（`--reset` で全削除してから） |
 | `pnpm db:studio` | Drizzle Studio |
 | `pnpm db:query "<SQL>"` | SQL を実行して結果を表示 |
 
@@ -104,4 +120,5 @@ pnpm db:query "select id, title from events"
 - PGlite のデータを消すには、サーバーを止めて `.pglite/` を削除する。
 - `pnpm dev:pglite` を止めるときは PGlite サーバーのプロセスを終了する（子の `next dev` も一緒に止まる）。
 - agent-browser が Chrome を見つけられない場合は `AGENT_BROWSER_EXECUTABLE_PATH` を指定する。
+- agent-browser の `fill` / `keyboard type` は `<input type="time">` などに値が入らない。`pnpm browser eval` でネイティブの value setter + `input` イベントを使う。
 - プロキシ環境で `next/font` の取得に失敗する場合は `NODE_USE_ENV_PROXY=1` を付ける（Claude Code on the web では SessionStart フックが設定）。

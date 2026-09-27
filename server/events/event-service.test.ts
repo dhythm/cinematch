@@ -1,24 +1,25 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createDatabase } from '@/server/db/client'
-import { createFixtureProvider } from '@/server/movies/fixtures'
+import { seedDatabase } from '@/server/db/seed'
+import { freshTestDatabase } from '@/server/db/testing'
+import { createDatabaseMovieProvider } from '@/server/movies/database-provider'
 import { createMovieCatalog } from '@/server/movies/movie-catalog'
 import { DomainError } from '../domain/errors'
 import { createDrizzleEventRepository } from './drizzle-event-repository'
 import { createEventService } from './event-service'
 
 const today = () => '2026-09-27'
-// fixture 'itetsuku' は today + 12 日 = 2026-10-09 公開
+// シードの 'itetsuku' は today + 12 日 = 2026-10-09 公開
 const RELEASE = '2026-10-09'
 
 async function setup() {
-  const { db, migrate } = await createDatabase({})
-  await migrate()
+  const db = await freshTestDatabase()
+  await seedDatabase(db, { today })
   let seq = 0
   return createEventService({
     repository: createDrizzleEventRepository(db),
-    catalog: createMovieCatalog({ providers: [createFixtureProvider({ today })], today }),
+    catalog: createMovieCatalog({ providers: [createDatabaseMovieProvider(db)], today }),
     generateId: () => `id${++seq}`,
-    now: () => new Date('2026-09-27T00:00:00Z'),
+    now: () => new Date('2026-09-28T09:00:00Z'),
   })
 }
 
@@ -143,8 +144,102 @@ describe('EventService', () => {
           poster: '/posters/p1.png',
           respondentCount: 1,
           decidedCandidate: { id: '2026-10-10_late', date: '2026-10-10', slot: 'late' },
+          reserved: false,
         },
       ])
+    })
+  })
+
+  describe('updateDetails', () => {
+    it('タイトル・メモなどを更新し、null で値を消せる', async () => {
+      const { id } = await service.create({ ...createInput, memo: 'IMAX' })
+
+      const event = await service.updateDetails(id, { title: '改題', memo: null })
+
+      expect(event.title).toBe('改題')
+      expect(event.memo).toBeUndefined()
+      expect(event.organizer).toBe('はるか')
+    })
+
+    it('存在しないイベントは not_found', async () => {
+      await expect(service.updateDetails('missing', { title: 'x' })).rejects.toMatchObject({ code: 'not_found' })
+    })
+  })
+
+  describe('delete', () => {
+    it('イベントを削除する', async () => {
+      const { id } = await service.create(createInput)
+
+      await service.delete(id)
+
+      expect(await service.get(id)).toBeUndefined()
+      await expect(service.delete(id)).rejects.toMatchObject({ code: 'not_found' })
+    })
+  })
+
+  describe('deleteParticipant', () => {
+    it('回答を削除すると集計も更新される', async () => {
+      const { id } = await service.create(createInput)
+      const answered = await service.saveParticipant(id, { name: 'A', answers: { '2026-10-09_noon': 'yes' } })
+      const participantId = answered.participants[0]?.id ?? ''
+
+      const event = await service.deleteParticipant(id, participantId)
+
+      expect(event.participants).toEqual([])
+      expect(event.tallies['2026-10-09_noon']).toEqual({ yes: 0, maybe: 0, no: 0, score: 0 })
+      expect(event.best).toBeUndefined()
+    })
+
+    it('存在しない回答は not_found、決定済みなら conflict', async () => {
+      const { id } = await service.create(createInput)
+      const answered = await service.saveParticipant(id, { name: 'A', answers: {} })
+      await expect(service.deleteParticipant(id, 'ghost')).rejects.toMatchObject({ code: 'not_found' })
+
+      await service.decide(id, '2026-10-09_noon')
+      await expect(service.deleteParticipant(id, answered.participants[0]?.id ?? '')).rejects.toMatchObject({
+        code: 'conflict',
+      })
+    })
+  })
+
+  describe('reserve / cancelReservation', () => {
+    const reservation = { theater: 'TOHOシネマズ新宿', showtime: '12:30', note: 'J列 4席', reservedBy: 'はるか' }
+
+    it('日程が決まっていないと予約できない', async () => {
+      const { id } = await service.create(createInput)
+
+      await expect(service.reserve(id, reservation)).rejects.toMatchObject({ code: 'conflict' })
+    })
+
+    it('決定済みなら予約を記録し、取り消せる', async () => {
+      const { id } = await service.create(createInput)
+      await service.decide(id, '2026-10-09_noon')
+
+      const reserved = await service.reserve(id, reservation)
+      expect(reserved.reservation).toEqual({ ...reservation, reservedAt: '2026-09-28T09:00:00.000Z' })
+      expect((await service.listSummaries([id]))[0]?.reserved).toBe(true)
+
+      const cancelled = await service.cancelReservation(id)
+      expect(cancelled.reservation).toBeUndefined()
+      expect(cancelled.decidedCandidateId).toBe('2026-10-09_noon')
+    })
+
+    it('調整を再開すると予約も解除される', async () => {
+      const { id } = await service.create(createInput)
+      await service.decide(id, '2026-10-09_noon')
+      await service.reserve(id, reservation)
+
+      const reopened = await service.reopen(id)
+
+      expect(reopened.reservation).toBeUndefined()
+    })
+
+    it('予約済みのまま別の回には変更できない', async () => {
+      const { id } = await service.create(createInput)
+      await service.decide(id, '2026-10-09_noon')
+      await service.reserve(id, reservation)
+
+      await expect(service.decide(id, '2026-10-10_late')).rejects.toMatchObject({ code: 'conflict' })
     })
   })
 })
