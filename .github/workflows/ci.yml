@@ -1,9 +1,10 @@
 name: CI
 
+# PR で既に同じ内容を検証しているので、main への push では回さない
+# （affected だけを見る CI にして main で全量、という運用にするなら push を足す）
 on:
-  push:
-    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # 同じブランチへの連続 push では古い実行を打ち切る
 concurrency:

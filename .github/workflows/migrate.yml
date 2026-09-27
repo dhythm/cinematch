@@ -1,0 +1,31 @@
+name: Migrate
+
+# main にマージされたらマイグレーションを本番 DB に適用する。
+# drizzle/ が変わったときだけ走らせ、手動でも叩けるようにしておく。
+on:
+  push:
+    branches: [main]
+    paths:
+      - drizzle/**
+      - .github/workflows/migrate.yml
+  workflow_dispatch:
+
+# 同時に 2 つ流れると適用順が壊れるので直列化する（実行中のものは止めない）
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Apply migrations
+    runs-on: ubuntu-latest
+    # DATABASE_URL は environment のシークレットとして持つ（保護ルールと履歴を付けられる）
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
