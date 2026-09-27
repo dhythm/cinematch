@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { ANSWER_SYMBOL, SLOT_LABELS, formatJaDate } from '@/lib/date'
-import { cn } from '@/lib/utils'
+import { ANSWER_SYMBOL, formatJaDate, SLOT_LABELS } from '@/lib/date'
 import type { Answer, Candidate, Participant } from '@/lib/types'
+import { cn } from '@/lib/utils'
+import type { SaveParticipantInput } from '@/server/events/event-service'
 
 const OPTIONS: { value: Answer; label: string; active: string }[] = [
   { value: 'yes', label: '行ける', active: 'bg-primary text-primary-foreground border-primary' },
@@ -18,11 +19,12 @@ const OPTIONS: { value: Answer; label: string; active: string }[] = [
 type Props = {
   candidates: Candidate[]
   initial?: Participant
-  onSave: (p: Participant) => void
+  pending?: boolean
+  onSave: (input: SaveParticipantInput) => void
   onCancel?: () => void
 }
 
-export function AnswerForm({ candidates, initial, onSave, onCancel }: Props) {
+export function AnswerForm({ candidates, initial, pending = false, onSave, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? '')
   const [comment, setComment] = useState(initial?.comment ?? '')
   const [answers, setAnswers] = useState<Record<string, Answer>>(initial?.answers ?? {})
@@ -37,7 +39,7 @@ export function AnswerForm({ candidates, initial, onSave, onCancel }: Props) {
     e.preventDefault()
     if (!name.trim()) return
     onSave({
-      id: initial?.id ?? `p-${Date.now()}`,
+      id: initial?.id,
       name: name.trim(),
       comment: comment.trim() || undefined,
       answers,
@@ -88,7 +90,10 @@ export function AnswerForm({ candidates, initial, onSave, onCancel }: Props) {
             </div>
           </div>
 
-          <ul className="flex flex-col divide-y divide-border rounded-xl border border-border" aria-labelledby="answers-label">
+          <ul
+            className="flex flex-col divide-y divide-border rounded-xl border border-border"
+            aria-labelledby="answers-label"
+          >
             {candidates.map((c) => (
               <li key={c.id} className="flex items-center justify-between gap-3 px-3 py-2">
                 <span className="flex flex-col">
@@ -97,7 +102,11 @@ export function AnswerForm({ candidates, initial, onSave, onCancel }: Props) {
                     {`${SLOT_LABELS[c.slot].label} ${SLOT_LABELS[c.slot].time}`}
                   </span>
                 </span>
-                <div role="radiogroup" aria-label={`${formatJaDate(c.date)} ${SLOT_LABELS[c.slot].label}`} className="flex gap-1">
+                <div
+                  role="radiogroup"
+                  aria-label={`${formatJaDate(c.date)} ${SLOT_LABELS[c.slot].label}`}
+                  className="flex gap-1"
+                >
                   {OPTIONS.map((o) => {
                     const checked = answers[c.id] === o.value
                     return (
@@ -140,7 +149,7 @@ export function AnswerForm({ candidates, initial, onSave, onCancel }: Props) {
               キャンセル
             </Button>
           )}
-          <Button type="submit" className="h-11 px-8 font-bold" disabled={!name.trim()}>
+          <Button type="submit" className="h-11 px-8 font-bold" disabled={!name.trim() || pending}>
             {initial ? '回答を更新' : '回答する'}
           </Button>
         </div>

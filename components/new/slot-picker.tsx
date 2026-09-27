@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react'
 import { SLOT_LABELS, SLOT_ORDER } from '@/lib/date'
-import { cn } from '@/lib/utils'
 import type { TimeSlot } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 export function SlotPicker({ selected, onToggle }: { selected: Set<TimeSlot>; onToggle: (slot: TimeSlot) => void }) {
   return (
@@ -16,12 +16,16 @@ export function SlotPicker({ selected, onToggle }: { selected: Set<TimeSlot>; on
             onClick={() => onToggle(slot)}
             className={cn(
               'flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors',
-              active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:border-primary/50',
+              active
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card hover:border-primary/50',
             )}
           >
             <span className="flex flex-col">
               <span className="font-bold">{SLOT_LABELS[slot].label}</span>
-              <span className={cn('font-mono text-xs', active ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+              <span
+                className={cn('font-mono text-xs', active ? 'text-primary-foreground/70' : 'text-muted-foreground')}
+              >
                 {SLOT_LABELS[slot].time}
               </span>
             </span>

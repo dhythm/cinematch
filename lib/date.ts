@@ -1,4 +1,4 @@
-import type { Answer, Candidate, Participant, TimeSlot } from './types'
+import type { Answer, TimeSlot } from './types'
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'] as const
 
@@ -7,7 +7,7 @@ export function parseDate(iso: string) {
   return new Date(y, m - 1, d)
 }
 
-export function toIso(date: Date) {
+function toIso(date: Date) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
@@ -23,6 +23,11 @@ export function addDays(iso: string, days: number) {
 export function diffDays(fromIso: string, toIsoStr: string) {
   const ms = parseDate(toIsoStr).getTime() - parseDate(fromIso).getTime()
   return Math.round(ms / 86_400_000)
+}
+
+/** サーバーのタイムゾーンに依存せず、日本時間の今日を YYYY-MM-DD で返す */
+export function todayInJapan(now = new Date()) {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(now)
 }
 
 export function weekday(iso: string) {
@@ -67,29 +72,4 @@ export const ANSWER_SYMBOL: Record<Answer, string> = {
   yes: '○',
   maybe: '△',
   no: '×',
-}
-
-export function tallyCandidate(candidateId: string, participants: Participant[]) {
-  let yes = 0
-  let maybe = 0
-  let no = 0
-  for (const p of participants) {
-    const a = p.answers[candidateId]
-    if (a === 'yes') yes++
-    else if (a === 'maybe') maybe++
-    else if (a === 'no') no++
-  }
-  return { yes, maybe, no, score: yes * 2 + maybe }
-}
-
-export function findBestCandidate(candidates: Candidate[], participants: Participant[]) {
-  if (participants.length === 0) return undefined
-  let best: { candidate: Candidate; yes: number; maybe: number; no: number; score: number } | undefined
-  for (const c of candidates) {
-    const t = tallyCandidate(c.id, participants)
-    if (!best || t.score > best.score || (t.score === best.score && t.yes > best.yes)) {
-      best = { candidate: c, ...t }
-    }
-  }
-  return best
 }

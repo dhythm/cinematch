@@ -1,8 +1,9 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { DM_Mono, Zen_Maru_Gothic } from 'next/font/google'
-import { Toaster } from '@/components/ui/sonner'
+import { Providers } from '@/components/providers'
 import { SiteHeader } from '@/components/site-header'
+import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
 const zenMaru = Zen_Maru_Gothic({
@@ -21,9 +22,7 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: 'しねまっち | みんなで映画に行く日をきめよう',
-  description:
-    '公開予定の映画を選んで、公開日から1〜2週間の中で仲間と観に行ける日を調整・決定できる日程調整アプリ。',
-  generator: 'v0.app',
+  description: '公開予定の映画を選んで、公開日から1〜2週間の中で仲間と観に行ける日を調整・決定できる日程調整アプリ。',
   icons: {
     icon: [
       { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
@@ -48,8 +47,10 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${zenMaru.variable} ${dmMono.variable} bg-background`}>
       <body className="min-h-dvh antialiased">
-        <SiteHeader />
-        {children}
+        <Providers>
+          <SiteHeader />
+          {children}
+        </Providers>
         <Toaster position="top-center" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

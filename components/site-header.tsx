@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { Popcorn } from 'lucide-react'
+import Link from 'next/link'
 
 export function SiteHeader() {
   return (
@@ -14,10 +14,16 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav aria-label="メイン" className="flex items-center gap-0.5 whitespace-nowrap text-sm font-medium">
-          <Link href="/#releases" className="rounded-full px-2.5 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:px-3">
+          <Link
+            href="/#releases"
+            className="rounded-full px-2.5 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:px-3"
+          >
             公開予定
           </Link>
-          <Link href="/#my-events" className="rounded-full px-2.5 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:px-3">
+          <Link
+            href="/#my-events"
+            className="rounded-full px-2.5 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:px-3"
+          >
             マイ調整
           </Link>
         </nav>

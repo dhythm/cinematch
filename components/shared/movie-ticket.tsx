@@ -29,11 +29,11 @@ export function MovieTicket({ movie, children }: { movie: Movie; children?: Reac
           </div>
           <div className="flex flex-col gap-0.5">
             <dt className="text-primary-foreground/60">上映時間</dt>
-            <dd className="font-mono font-medium">{`${movie.runtime}分`}</dd>
+            <dd className="font-mono font-medium">{movie.runtime ? `${movie.runtime}分` : '-'}</dd>
           </div>
           <div className="flex min-w-0 flex-col gap-0.5">
             <dt className="text-primary-foreground/60">配給</dt>
-            <dd className="truncate font-medium">{movie.distributor}</dd>
+            <dd className="truncate font-medium">{movie.distributor ?? '-'}</dd>
           </div>
         </dl>
         {children}

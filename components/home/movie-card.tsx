@@ -1,9 +1,9 @@
+import { ArrowRight } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import type { Movie } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 export function MovieCard({ movie }: { movie: Movie }) {
   return (
@@ -23,12 +23,15 @@ export function MovieCard({ movie }: { movie: Movie }) {
       <div className="flex flex-1 flex-col gap-1">
         <h4 className="font-bold leading-snug text-pretty">{movie.title}</h4>
         <p className="font-mono text-xs text-muted-foreground">
-          {`${movie.runtime}min · ${movie.genres.join(' / ')}`}
+          {[movie.runtime && `${movie.runtime}min`, movie.genres.join(' / ')].filter(Boolean).join(' · ')}
         </p>
       </div>
       <Link
         href={`/new?movie=${movie.id}`}
-        className={cn(buttonVariants({ variant: 'outline' }), 'h-9 w-full justify-between bg-card group-hover:border-primary')}
+        className={cn(
+          buttonVariants({ variant: 'outline' }),
+          'h-9 w-full justify-between bg-card group-hover:border-primary',
+        )}
       >
         日程を調整する
         <ArrowRight aria-hidden />
