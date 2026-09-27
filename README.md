@@ -68,7 +68,7 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 
 | メソッド | パス | 内容 |
 | --- | --- | --- |
-| GET | `/api/movies` | 調整できる作品（`movies` テーブル） |
+| GET | `/api/movies` | 候補にできる作品（`movies` テーブル） |
 | GET | `/api/cron/movies` | TMDB の取り込み（Vercel Cron 専用。`CRON_SECRET` で認証。取り込み元が未設定なら 500） |
 | メソッド | パス | 内容 | 権限 |
 | --- | --- | --- | --- |
@@ -77,7 +77,7 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 | PATCH / DELETE | `/api/events/:id` | イベント情報の更新 / 削除 | 幹事 |
 | POST | `/api/events/:id/participants` | 回答の追加（`id` 指定で更新） | 誰でも |
 | DELETE | `/api/events/:id/participants/:participantId` | 回答の削除 | 誰でも |
-| PUT / DELETE | `/api/events/:id/decision` | 日程の決定 / 調整の再開（予約も解除） | 幹事 |
+| PUT / DELETE | `/api/events/:id/decision` | 日程の決定 / 決定の取り消し（予約も解除） | 幹事 |
 | PUT / DELETE | `/api/events/:id/reservation` | 決定した回の予約（劇場・上映開始・メモ・予約者）の記録 / 取り消し | 幹事 |
 | GET | `/e/:id/organizer?key=…` | 幹事用 URL。キーが正しければ幹事クッキーを設定し、キーを消した `/e/:id` へリダイレクト | — |
 

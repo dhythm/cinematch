@@ -23,7 +23,7 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: 'しねまっちゃん | みんなで映画に行く日をきめよう',
-  description: '公開予定の映画を選んで、公開日から1〜2週間の中で仲間と観に行ける日を調整・決定できる日程調整アプリ。',
+  description: '公開予定の映画を選んで、公開日から1〜2週間の中で仲間と観に行ける日をきめられるアプリ。',
   icons: {
     // 背景が透過なのでライト/ダークどちらでも同じ絵を使う
     icon: [

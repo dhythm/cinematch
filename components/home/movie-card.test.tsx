@@ -21,7 +21,7 @@ function movie(overrides: Partial<Movie> = {}): Movie {
 afterEach(cleanup)
 
 describe('MovieCard', () => {
-  it('作品全体が調整ページへのリンクになっている', () => {
+  it('作品全体がイベント作成ページへのリンクになっている', () => {
     render(<MovieCard movie={movie()} />)
 
     const link = screen.getByRole('link', { name: /夏雲のむこうがわ/ })

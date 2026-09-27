@@ -59,7 +59,7 @@ export function MyEvents() {
                     decided ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground',
                   )}
                 >
-                  {decided ? '決定' : '調整中'}
+                  {decided ? '決定' : '日程きめ中'}
                 </span>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               </Link>

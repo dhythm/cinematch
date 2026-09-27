@@ -7,7 +7,7 @@ import { movieKeys } from '@/lib/api/keys'
 import { getContainer } from '@/server/container'
 
 export const metadata: Metadata = {
-  title: '日程調整をつくる | しねまっちゃん',
+  title: 'イベントをつくる | しねまっちゃん',
 }
 
 export default async function NewEventPage({ searchParams }: { searchParams: Promise<{ movie?: string }> }) {
