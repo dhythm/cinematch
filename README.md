@@ -18,7 +18,9 @@ pnpm dev                     # http://localhost:3000 （/e/demo にデモイベ�
 ```
 Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ server/* ──▶ Drizzle ORM ──▶ PostgreSQL
    ▲                                                            │
-   └── Server Component で prefetch → HydrationBoundary ◀───────┘        MovieCatalog ──▶ movies テーブル / TMDB API
+   └── Server Component で prefetch → HydrationBoundary ◀───────┘        MovieCatalog ──▶ movies テーブル
+
+TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──▶ movies テーブル
 ```
 
 - **集計・検証・候補生成はすべてサーバー側**。クライアントはサーバーが返す集計済みの `EventView`（`tallies` / `best`）を表示するだけ。
@@ -32,7 +34,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 | `server/events/` | `EventService`（ユースケース）と `EventRepository`（Drizzle 実装 + 契約テスト） |
 | `server/db/` | Drizzle スキーマと DB 接続（`DATABASE_URL` → node-postgres / 未設定 → プロセス内 PGlite） |
 | `drizzle/` | drizzle-kit が生成するマイグレーション SQL |
-| `server/movies/` | `MovieCatalog`（TTL キャッシュ付き集約）と各プロバイダ（DB の movies テーブル / TMDB） |
+| `server/movies/` | `MovieCatalog`（DB を読む集約）、`movie-sync`（外部ソース → DB の取り込み）、各プロバイダ（movies テーブル / TMDB） |
 | `server/container.ts` | 環境変数から依存を組み立て、`globalThis` に保持（HMR をまたいで DB 接続やキャッシュを維持） |
 | `lib/api/` | fetch クライアント、クエリキー、`queryOptions` / mutation hooks |
 | `components/` | UI（shadcn/ui ベース） |
@@ -41,10 +43,22 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 
 | 変数 | 説明 |
 | --- | --- |
-| `TMDB_API_TOKEN` | 設定すると TMDB から取得（discover region=JP → 作品詳細の release_dates で日本の公開日・上映時間を補完。日本公開の無い作品は除外） |
+| `TMDB_API_TOKEN` | 設定すると TMDB から取り込む（discover region=JP → 作品詳細の release_dates で日本の公開日・上映時間を補完。日本公開の無い作品は除外）。リクエスト時ではなく取り込み時にだけ使う |
 | `SEED=false` | 開発時の起動時シードを止める |
 | `DATABASE_URL` | PostgreSQL の接続先。未設定ならプロセス内 PGlite |
 | `PGLITE_DATA_DIR` | `DATABASE_URL` 未設定時の PGlite 保存先。未指定ならメモリ |
+
+### 映画データの取り込み
+
+リクエストのたびに TMDB を叩くのではなく、**`movies` テーブルに取り込んだものを読む**。
+
+- 読み取り: `MovieCatalog` は `movies` テーブルだけを見る（公開日が「今日 −13 日 〜 +60 日」の作品、60 秒の TTL キャッシュ）。
+- 書き込み: `syncMovies()` が外部プロバイダの結果を `id` で upsert する。**削除はしないので過去の作品は履歴として残る**。
+- 実行タイミング:
+  - `pnpm db:seed` … ダミー映画のシードに続けて TMDB も取り込む（`--no-sync` で抑止）
+  - 開発時の `pnpm dev` … 起動時のシード後にバックグラウンドで 1 回（起動を待たせない。結果はログ）
+  - `pnpm movies:sync` … **cron ジョブ用のエントリポイント**。マイグレーション済みの DB に対して実行する
+- 冪等なので何度実行してもよい。プロバイダ単位で失敗を切り離すので、1 つが落ちても残りは保存される（`movies:sync` は一部失敗で終了コード 1）。
 
 ### API
 
@@ -89,6 +103,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 - `drizzle-kit` と `pnpm db:query` は `DATABASE_URL` 未設定なら PGlite サーバーに接続する。
 - 本番（`NODE_ENV=production`）では起動時の自動マイグレーションをしないので、デプロイ手順で `pnpm db:migrate` を実行する。
 - 映画データの出典として、フッターに TMDB の表記（利用規約で必須）を出している。
+- TMDB の作品は `pnpm db:seed` / `pnpm movies:sync` で `movies` テーブルに入る（`source = 'tmdb'`、id は `tmdb-<TMDB の ID>`）。
 - シードデータ（`server/db/seed.ts`）: ダミー映画 6 本（公開日は実行日からの相対日）とデモイベント `/e/demo`。開発時は起動のたびに冪等に投入され、映画の公開日は今日基準に更新される。他の環境には `pnpm db:seed` で入れる。
 - スキーマ変更: `server/db/schema.ts` を編集 → `pnpm db:generate` → 生成された `drizzle/*.sql` をコミット。
 
@@ -96,20 +111,22 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 
 | コマンド | 内容 |
 | --- | --- |
-| `pnpm lint` / `pnpm lint:fix` | Biome（lint + format + import 整列） |
-| `pnpm format` | Biome フォーマット |
+| `pnpm lint` | Biome の lint + import 整列（format は見ない。CI で並列に分けるため） |
+| `pnpm lint:fix` | Biome の lint + format + import 整列を自動修正 |
+| `pnpm format` / `pnpm format:check` | Biome フォーマット（書き換え / 検査のみ） |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm knip` | 未使用ファイル・export・依存の検出 |
 | `pnpm test` | Vitest（`server` = node / `ui` = jsdom の 2 プロジェクト） |
 | `pnpm e2e` | Playwright（使い捨てのインメモリ PGlite サーバー + シードデータで dev サーバーを起動） |
-| `pnpm check` | lint + typecheck + knip + test |
+| `pnpm check` | lint + format:check + typecheck + knip + test |
 | `pnpm browser <cmd>` | agent-browser（エージェント向けブラウザ操作 CLI） |
 | `pnpm dev:pglite` | PGlite サーバー + dev サーバー（エージェント向け） |
 | `pnpm db:up` / `pnpm db:down` | Docker の PostgreSQL を起動 / 停止 |
 | `pnpm db:pglite` | PGlite サーバーだけを起動 |
 | `pnpm db:generate` | スキーマからマイグレーション SQL を生成 |
 | `pnpm db:migrate` | マイグレーションを適用 |
-| `pnpm db:seed [--reset]` | ダミー映画とデモイベントを投入（`--reset` で全削除してから） |
+| `pnpm db:seed [--reset] [--no-sync]` | ダミー映画とデモイベントを投入（`--reset` で全削除してから / `--no-sync` で TMDB 取り込みを省く） |
+| `pnpm movies:sync` | TMDB の公開予定作品を `movies` テーブルに取り込む（cron 用） |
 | `pnpm db:studio` | Drizzle Studio |
 | `pnpm db:query "<SQL>"` | SQL を実行して結果を表示 |
 
