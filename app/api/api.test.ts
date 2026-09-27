@@ -30,12 +30,12 @@ function request(
 beforeAll(async () => {
   vi.useFakeTimers({ now: new Date('2026-09-27T00:00:00+09:00'), toFake: ['Date'] })
   vi.stubEnv('DATABASE_URL', '')
-  delete (globalThis as { __cinematchContainer?: unknown }).__cinematchContainer
+  delete (globalThis as { __cinematchanContainer?: unknown }).__cinematchanContainer
   await getContainer()
 })
 
 afterAll(() => {
-  delete (globalThis as { __cinematchContainer?: unknown }).__cinematchContainer
+  delete (globalThis as { __cinematchanContainer?: unknown }).__cinematchanContainer
   vi.useRealTimers()
   vi.unstubAllEnvs()
 })
