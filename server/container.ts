@@ -16,9 +16,8 @@ export type Container = {
 const today = () => todayInJapan()
 
 /**
- * 外部ソースの取り込みを起動時に一度だけ走らせる（開発用）。
+ * 実データの取り込みを起動時に一度だけ走らせる。
  * TMDB への数十リクエストで起動を待たせたくないので待ち受けず、結果はログに出すだけにする。
- * 本番は cron から `pnpm movies:sync` を実行する。
  */
 function syncInBackground(env: NodeJS.ProcessEnv, db: Database) {
   void syncExternalMovies({ db, env, today })
@@ -34,10 +33,13 @@ async function createContainer(env: NodeJS.ProcessEnv): Promise<Container> {
   // PGlite（プロセス内）と開発時の DB は起動時に自動マイグレーション。本番は `pnpm db:migrate` を明示実行する
   if (database.driver === 'pglite' || env.NODE_ENV !== 'production') await database.migrate()
   // 開発時はダミー映画とデモイベントを投入する（冪等）。本番や他環境では `pnpm db:seed`
-  if (env.NODE_ENV !== 'production' && env.SEED !== 'false') await seedDatabase(database.db, { today })
+  const seeding = env.NODE_ENV !== 'production' && env.SEED !== 'false'
+  if (seeding) await seedDatabase(database.db, { today })
   // カタログは DB だけを読む。外部ソース（TMDB）は movie-sync が DB に取り込む
   const catalog = createMovieCatalog({ providers: [createDatabaseMovieProvider(database.db)], today })
-  if (env.NODE_ENV !== 'production') syncInBackground(env, database.db)
+  // シードするときはダミー映画だけで完結させ、外部 API は呼ばない。
+  // シードしないとき（SEED=false）は実データを取り込む。本番はコールドスタートのたびに TMDB を叩かないよう cron に任せる
+  if (!seeding && env.NODE_ENV !== 'production') syncInBackground(env, database.db)
   const repository = createDrizzleEventRepository(database.db)
   const events = createEventService({
     repository,
