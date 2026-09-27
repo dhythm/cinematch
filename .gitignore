@@ -39,3 +39,6 @@ next-env.d.ts
 
 # PGlite data dir (pnpm dev:pglite / db:pglite)
 /.pglite/
+
+# DB ダンプ (pnpm db:dump)
+/backups/

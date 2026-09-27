@@ -38,7 +38,7 @@ export function ReleaseBrowser() {
         <h2 id="releases-title" className="text-2xl font-black tracking-tight">
           公開予定の映画
         </h2>
-        <p className="text-sm text-muted-foreground">{'作品を選んで「日程を調整する」から候補日を作成できます'}</p>
+        <p className="text-sm text-muted-foreground">作品をタップすると候補日を作成できます</p>
       </div>
 
       <div className="relative">

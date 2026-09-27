@@ -44,7 +44,7 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 | 変数 | 説明 |
 | --- | --- |
 | `TMDB_API_TOKEN` | 設定すると TMDB から取り込む（discover region=JP → 作品詳細の release_dates で日本の公開日・上映時間を補完。日本公開の無い作品は除外）。リクエスト時ではなく取り込み時にだけ使う |
-| `SEED=false` | 開発時の起動時シードを止める |
+| `SEED=false` | 開発時の起動時シードを止める。代わりに起動時に TMDB から実データを取り込む |
 | `DATABASE_URL` | PostgreSQL の接続先。未設定ならプロセス内 PGlite |
 | `PGLITE_DATA_DIR` | `DATABASE_URL` 未設定時の PGlite 保存先。未指定ならメモリ |
 
@@ -54,10 +54,12 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 
 - 読み取り: `MovieCatalog` は `movies` テーブルだけを見る（公開日が「今日 −13 日 〜 +60 日」の作品、60 秒の TTL キャッシュ）。
 - 書き込み: `syncMovies()` が外部プロバイダの結果を `id` で upsert する。**削除はしないので過去の作品は履歴として残る**。
+- **シードと取り込みは排他**。シードはダミー映画だけで完結し、外部 API を呼ばない（ローカルで操作・検証するため）。実データが欲しいときはシードを止める。
 - 実行タイミング:
-  - `pnpm db:seed` … ダミー映画のシードに続けて TMDB も取り込む（`--no-sync` で抑止）
-  - 開発時の `pnpm dev` … 起動時のシード後にバックグラウンドで 1 回（起動を待たせない。結果はログ）
-  - `pnpm movies:sync` … **cron ジョブ用のエントリポイント**。マイグレーション済みの DB に対して実行する
+  - `pnpm dev`（既定） … ダミー映画のシードのみ。TMDB は呼ばない
+  - `SEED=false pnpm dev` … シードせず、起動時にバックグラウンドで 1 回だけ実データを取り込む（起動を待たせない。結果はログ）
+  - `pnpm movies:sync` … **手動 / cron ジョブ用のエントリポイント**。マイグレーション済みの DB に対して実行する
+  - 本番 … コールドスタートのたびに TMDB を叩かないよう、起動時の取り込みはせず cron の `pnpm movies:sync` に任せる
 - 冪等なので何度実行してもよい。プロバイダ単位で失敗を切り離すので、1 つが落ちても残りは保存される（`movies:sync` は一部失敗で終了コード 1）。
 
 ### API
@@ -103,9 +105,35 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 - `drizzle-kit` と `pnpm db:query` は `DATABASE_URL` 未設定なら PGlite サーバーに接続する。
 - 本番（`NODE_ENV=production`）では起動時の自動マイグレーションをしないので、デプロイ手順で `pnpm db:migrate` を実行する。
 - 映画データの出典として、フッターに TMDB の表記（利用規約で必須）を出している。
-- TMDB の作品は `pnpm db:seed` / `pnpm movies:sync` で `movies` テーブルに入る（`source = 'tmdb'`、id は `tmdb-<TMDB の ID>`）。
-- シードデータ（`server/db/seed.ts`）: ダミー映画 6 本（公開日は実行日からの相対日）とデモイベント `/e/demo`。開発時は起動のたびに冪等に投入され、映画の公開日は今日基準に更新される。他の環境には `pnpm db:seed` で入れる。
+- TMDB の作品は `pnpm movies:sync`（または `SEED=false` での起動）で `movies` テーブルに入る（`source = 'tmdb'`、id は `tmdb-<TMDB の ID>`）。
+- シードデータ（`server/db/seed.ts`）: ダミー映画 6 本（公開日は実行日からの相対日）とデモイベント `/e/demo`。開発時は起動のたびに冪等に投入され、映画の公開日は今日基準に更新される。他の環境には `pnpm db:seed` で入れる。外部 API は呼ばない。
 - スキーマ変更: `server/db/schema.ts` を編集 → `pnpm db:generate` → 生成された `drizzle/*.sql` をコミット。
+
+#### バックアップと復元
+
+`pnpm db:dump` / `pnpm db:restore` は、ホストに `pg_dump` / `psql` が無くても動くよう `compose.yaml` と同じ PostgreSQL イメージのコンテナで実行する（Docker が必要）。対象は `public` スキーマのみで、drizzle の適用履歴（`drizzle` スキーマ）は含まない。
+
+```bash
+pnpm db:dump                    # スキーマ + データ → backups/<host>-<日時>.sql
+pnpm db:dump --data-only        # データのみ → backups/<host>-<日時>-data.sql
+pnpm db:restore <ファイル>       # 流し込む（ON_ERROR_STOP=1。途中で失敗したら止まる）
+```
+
+リモート（Neon など）へ `db:restore` するときは、事故防止のため `--yes` を明示する。`backups/` は gitignore 済み。
+
+マイグレーションをスカッシュする（複数の `drizzle/*.sql` を 1 本にまとめ直す）手順:
+
+```bash
+pnpm db:dump --data-only                      # 1. データを退避
+rm drizzle/*.sql drizzle/meta/*.json          # 2. 既存のマイグレーションを捨てて
+echo '{"version":"7","dialect":"postgresql","entries":[]}' > drizzle/meta/_journal.json
+pnpm db:generate --name init                  # 3. 現在のスキーマから 1 本生成
+# 4. DB のスキーマを作り直す（public / drizzle スキーマを drop してから）
+pnpm db:migrate
+pnpm db:restore backups/<退避したファイル>      # 5. データを戻す
+```
+
+データのみのダンプにはシーケンスの `setval` も含まれるので、復元後もそのまま追記できる。
 
 ## 開発コマンド
 
@@ -125,10 +153,12 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
 | `pnpm db:pglite` | PGlite サーバーだけを起動 |
 | `pnpm db:generate` | スキーマからマイグレーション SQL を生成 |
 | `pnpm db:migrate` | マイグレーションを適用 |
-| `pnpm db:seed [--reset] [--no-sync]` | ダミー映画とデモイベントを投入（`--reset` で全削除してから / `--no-sync` で TMDB 取り込みを省く） |
+| `pnpm db:seed [--reset]` | ダミー映画とデモイベントを投入（`--reset` で全削除してから）。外部 API は呼ばない |
 | `pnpm movies:sync` | TMDB の公開予定作品を `movies` テーブルに取り込む（cron 用） |
 | `pnpm db:studio` | Drizzle Studio |
 | `pnpm db:query "<SQL>"` | SQL を実行して結果を表示 |
+| `pnpm db:dump [--data-only] [出力先]` | DB をダンプ（既定は `backups/<host>-<日時>.sql`） |
+| `pnpm db:restore <ファイル> [--yes]` | ダンプを流し込む（リモートへは `--yes` が必須） |
 
 ### エージェントによる動作確認
 

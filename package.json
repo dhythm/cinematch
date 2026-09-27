@@ -28,6 +28,8 @@
     "db:seed": "tsx scripts/seed.mts",
     "db:studio": "drizzle-kit studio",
     "db:query": "node --no-warnings=ExperimentalWarning scripts/db-query.mts",
+    "db:dump": "tsx scripts/db-dump.mts",
+    "db:restore": "tsx scripts/db-restore.mts",
     "movies:sync": "tsx scripts/sync-movies.mts"
   },
   "dependencies": {

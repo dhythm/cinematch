@@ -6,11 +6,8 @@ test('作品を選んで調整ページを作り、回答して日程を決定�
   await expect(page.getByRole('link', { name: 'しねまっちゃん ホーム' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '公開予定の映画' })).toBeVisible()
 
-  await page
-    .getByRole('article')
-    .filter({ hasText: '凍てつく海のアストロノート' })
-    .getByRole('link', { name: '日程を調整する' })
-    .click()
+  // カード全体（ポスター画像を含む）がリンクになっている
+  await page.getByRole('link', { name: /凍てつく海のアストロノート/ }).click()
   await expect(page).toHaveURL(/\/new\?movie=itetsuku/)
 
   await page.getByLabel('幹事の名前').fill('はるか')

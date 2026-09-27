@@ -25,11 +25,12 @@ export const metadata: Metadata = {
   title: 'しねまっちゃん | みんなで映画に行く日をきめよう',
   description: '公開予定の映画を選んで、公開日から1〜2週間の中で仲間と観に行ける日を調整・決定できる日程調整アプリ。',
   icons: {
+    // 背景が透過なのでライト/ダークどちらでも同じ絵を使う
     icon: [
-      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
-      { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' },
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon.png', sizes: '256x256', type: 'image/png' },
     ],
+    // iOS のホーム画面は透過を黒で塗るため、テーマ色を敷いた不透明な画像を渡す
     apple: '/apple-icon.png',
   },
 }
