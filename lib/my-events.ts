@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react'
 
-const STORAGE_KEY = 'cinematch:my-event-ids'
+const STORAGE_KEY = 'cinematchan:my-event-ids'
 const MAX_EVENTS = 20
 const EMPTY: string[] = []
 

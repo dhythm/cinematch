@@ -39,9 +39,9 @@ async function createContainer(env: NodeJS.ProcessEnv): Promise<Container> {
 }
 
 // dev サーバーの HMR や Route Handler 間でインメモリ状態を共有するため globalThis に保持する
-const globalForContainer = globalThis as typeof globalThis & { __cinematchContainer?: Promise<Container> }
+const globalForContainer = globalThis as typeof globalThis & { __cinematchanContainer?: Promise<Container> }
 
 export function getContainer() {
-  globalForContainer.__cinematchContainer ??= createContainer(process.env)
-  return globalForContainer.__cinematchContainer
+  globalForContainer.__cinematchanContainer ??= createContainer(process.env)
+  return globalForContainer.__cinematchanContainer
 }

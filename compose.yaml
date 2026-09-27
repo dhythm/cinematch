@@ -3,15 +3,15 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: cinematch
-      POSTGRES_PASSWORD: cinematch
-      POSTGRES_DB: cinematch
+      POSTGRES_USER: cinematchan
+      POSTGRES_PASSWORD: cinematchan
+      POSTGRES_DB: cinematchan
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cinematch -d cinematch"]
+      test: ["CMD-SHELL", "pg_isready -U cinematchan -d cinematchan"]
       interval: 2s
       timeout: 5s
       retries: 15
