@@ -1,0 +1,20 @@
+# ローカル開発用 PostgreSQL（本番は Neon を想定し、メジャーバージョンを揃える）
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: cinematch
+      POSTGRES_PASSWORD: cinematch
+      POSTGRES_DB: cinematch
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cinematch -d cinematch"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  postgres-data:

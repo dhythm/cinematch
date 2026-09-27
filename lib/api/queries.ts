@@ -1,6 +1,11 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { EventSummary, EventView, Movie } from '@/lib/types'
-import type { CreateEventInput, SaveParticipantInput } from '@/server/events/event-service'
+import type {
+  CreateEventInput,
+  ReserveInput,
+  SaveParticipantInput,
+  UpdateEventInput,
+} from '@/server/events/event-service'
 import { apiFetch } from './client'
 import { eventKeys, movieKeys } from './keys'
 
@@ -65,5 +70,41 @@ export function useDecide(eventId: string) {
 export function useReopen(eventId: string) {
   return useEventMutation(eventId, () =>
     apiFetch<EventView>(`/api/events/${encodeURIComponent(eventId)}/decision`, { method: 'DELETE' }),
+  )
+}
+
+export function useUpdateEvent(eventId: string) {
+  return useEventMutation(eventId, (input: UpdateEventInput) =>
+    apiFetch<EventView>(`/api/events/${encodeURIComponent(eventId)}`, { method: 'PATCH', json: input }),
+  )
+}
+
+export function useDeleteEvent(eventId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiFetch<void>(`/api/events/${encodeURIComponent(eventId)}`, { method: 'DELETE' }),
+    // 詳細キャッシュは画面遷移後に GC されるので消さない（消すと再取得で 404 になる）
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...eventKeys.all, 'summaries'] }),
+  })
+}
+
+export function useDeleteParticipant(eventId: string) {
+  return useEventMutation(eventId, (participantId: string) =>
+    apiFetch<EventView>(
+      `/api/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(participantId)}`,
+      { method: 'DELETE' },
+    ),
+  )
+}
+
+export function useReserve(eventId: string) {
+  return useEventMutation(eventId, (input: ReserveInput) =>
+    apiFetch<EventView>(`/api/events/${encodeURIComponent(eventId)}/reservation`, { method: 'PUT', json: input }),
+  )
+}
+
+export function useCancelReservation(eventId: string) {
+  return useEventMutation(eventId, () =>
+    apiFetch<EventView>(`/api/events/${encodeURIComponent(eventId)}/reservation`, { method: 'DELETE' }),
   )
 }

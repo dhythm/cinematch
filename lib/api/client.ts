@@ -23,5 +23,6 @@ export async function apiFetch<T>(path: string, { json, headers, ...init }: Opti
     const body = (await response.json().catch(() => undefined)) as ApiError | undefined
     throw new ApiRequestError(response.status, body?.error.code, body?.error.message ?? response.statusText)
   }
+  if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }

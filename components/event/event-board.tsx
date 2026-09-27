@@ -1,13 +1,25 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { useDecide, useReopen, useSaveParticipant } from '@/lib/api/queries'
+import {
+  useCancelReservation,
+  useDecide,
+  useDeleteEvent,
+  useDeleteParticipant,
+  useReopen,
+  useReserve,
+  useSaveParticipant,
+  useUpdateEvent,
+} from '@/lib/api/queries'
 import type { EventView } from '@/lib/types'
 import type { SaveParticipantInput } from '@/server/events/event-service'
 import { AnswerForm } from './answer-form'
 import { AnswerTable } from './answer-table'
 import { DecisionPanel } from './decision-panel'
+import { EventSettings } from './event-settings'
+import { ReservationPanel } from './reservation-panel'
 import { ShareBar } from './share-bar'
 
 const showError = (error: Error) => toast.error(error.message)
@@ -17,6 +29,12 @@ export function EventBoard({ event }: { event: EventView }) {
   const saveParticipant = useSaveParticipant(event.id)
   const decide = useDecide(event.id)
   const reopen = useReopen(event.id)
+  const deleteParticipant = useDeleteParticipant(event.id)
+  const reserve = useReserve(event.id)
+  const cancelReservation = useCancelReservation(event.id)
+  const updateEvent = useUpdateEvent(event.id)
+  const deleteEvent = useDeleteEvent(event.id)
+  const router = useRouter()
 
   const editing = event.participants.find((p) => p.id === editingId)
   const best = event.best && {
@@ -38,6 +56,17 @@ export function EventBoard({ event }: { event: EventView }) {
   function handleDecide(candidateId: string) {
     decide.mutate(candidateId, {
       onSuccess: () => toast.success('日程を決定しました', { description: 'メンバーに共有して予約へ進みましょう' }),
+      onError: showError,
+    })
+  }
+
+  function handleDeleteParticipant(participant: { id: string; name: string }) {
+    if (!window.confirm(`${participant.name}さんの回答を削除しますか？`)) return
+    deleteParticipant.mutate(participant.id, {
+      onSuccess: () => {
+        toast.success(`${participant.name}さんの回答を削除しました`)
+        setEditingId(null)
+      },
       onError: showError,
     })
   }
@@ -69,6 +98,18 @@ export function EventBoard({ event }: { event: EventView }) {
         onReopen={() => reopen.mutate(undefined, { onError: showError })}
       />
 
+      {event.decidedCandidateId && (
+        <ReservationPanel
+          reservation={event.reservation}
+          defaultReservedBy={event.organizer}
+          pending={reserve.isPending || cancelReservation.isPending}
+          onReserve={(input) =>
+            reserve.mutate(input, { onSuccess: () => toast.success('予約を記録しました'), onError: showError })
+          }
+          onCancel={() => cancelReservation.mutate(undefined, { onError: showError })}
+        />
+      )}
+
       <AnswerTable
         candidates={event.candidates}
         participants={event.participants}
@@ -84,11 +125,30 @@ export function EventBoard({ event }: { event: EventView }) {
           key={editingId ?? `new-${event.participants.length}`}
           candidates={event.candidates}
           initial={editing}
-          pending={saveParticipant.isPending}
+          pending={saveParticipant.isPending || deleteParticipant.isPending}
           onSave={handleSave}
           onCancel={editing ? () => setEditingId(null) : undefined}
+          onDelete={editing ? () => handleDeleteParticipant(editing) : undefined}
         />
       )}
+
+      <EventSettings
+        key={`${event.title}|${event.organizer}|${event.deadline}|${event.memo}`}
+        event={event}
+        pending={updateEvent.isPending || deleteEvent.isPending}
+        onSave={(input) =>
+          updateEvent.mutate(input, { onSuccess: () => toast.success('イベントを更新しました'), onError: showError })
+        }
+        onDelete={() =>
+          deleteEvent.mutate(undefined, {
+            onSuccess: () => {
+              toast.success('イベントを削除しました')
+              router.push('/')
+            },
+            onError: showError,
+          })
+        }
+      />
     </div>
   )
 }

@@ -30,6 +30,16 @@ export type Participant = {
   answers: Record<string, Answer>
 }
 
+/** 決定した回について幹事が実際に取った予約 */
+export type Reservation = {
+  theater: string
+  /** 上映開始時刻 HH:MM */
+  showtime?: string
+  note?: string
+  reservedBy?: string
+  reservedAt: string
+}
+
 export type ScheduleEvent = {
   id: string
   /** 作成時点の作品情報。外部ソースの変化に影響されないようスナップショットで持つ */
@@ -41,6 +51,7 @@ export type ScheduleEvent = {
   candidates: Candidate[]
   participants: Participant[]
   decidedCandidateId?: string
+  reservation?: Reservation
   createdAt: string
 }
 
@@ -63,4 +74,5 @@ export type EventSummary = {
   poster: string
   respondentCount: number
   decidedCandidate?: Candidate
+  reserved: boolean
 }

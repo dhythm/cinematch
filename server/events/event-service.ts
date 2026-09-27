@@ -21,6 +21,21 @@ export type SaveParticipantInput = {
   answers: Record<string, Answer>
 }
 
+export type UpdateEventInput = {
+  title?: string
+  /** null で値を消す */
+  organizer?: string | null
+  memo?: string | null
+  deadline?: string | null
+}
+
+export type ReserveInput = {
+  theater: string
+  showtime?: string
+  note?: string
+  reservedBy?: string
+}
+
 type Dependencies = {
   repository: EventRepository
   catalog: MovieCatalog
@@ -36,6 +51,10 @@ function toView(event: ScheduleEvent): EventView {
     tallies: Object.fromEntries(event.candidates.map((c) => [c.id, tallyCandidate(c.id, event.participants)])),
     best: findBestCandidate(event.candidates, event.participants),
   }
+}
+
+function assertOpen(event: ScheduleEvent) {
+  if (event.decidedCandidateId) throw new DomainError('conflict', 'event is already decided')
 }
 
 export function createEventService({ repository, catalog, generateId, now }: Dependencies) {
@@ -86,12 +105,24 @@ export function createEventService({ repository, catalog, generateId, now }: Dep
         poster: event.movie.poster,
         respondentCount: event.participants.length,
         decidedCandidate: event.candidates.find((c) => c.id === event.decidedCandidateId),
+        reserved: event.reservation !== undefined,
       }))
+    },
+
+    async updateDetails(eventId: string, input: UpdateEventInput) {
+      await require(eventId)
+      await repository.updateDetails(eventId, input)
+      return reload(eventId)
+    },
+
+    async delete(eventId: string) {
+      await require(eventId)
+      await repository.delete(eventId)
     },
 
     async saveParticipant(eventId: string, input: SaveParticipantInput) {
       const event = await require(eventId)
-      if (event.decidedCandidateId) throw new DomainError('conflict', 'event is already decided')
+      assertOpen(event)
       if (input.id && !event.participants.some((p) => p.id === input.id)) {
         throw new DomainError('not_found', `participant ${input.id} not found`)
       }
@@ -105,10 +136,23 @@ export function createEventService({ repository, catalog, generateId, now }: Dep
       return reload(eventId)
     },
 
+    async deleteParticipant(eventId: string, participantId: string) {
+      const event = await require(eventId)
+      assertOpen(event)
+      if (!event.participants.some((p) => p.id === participantId)) {
+        throw new DomainError('not_found', `participant ${participantId} not found`)
+      }
+      await repository.deleteParticipant(eventId, participantId)
+      return reload(eventId)
+    },
+
     async decide(eventId: string, candidateId: string) {
       const event = await require(eventId)
       if (!event.candidates.some((c) => c.id === candidateId)) {
         throw new DomainError('invalid', `candidate ${candidateId} not found`)
+      }
+      if (event.reservation && event.decidedCandidateId !== candidateId) {
+        throw new DomainError('conflict', 'cancel the reservation before changing the decided candidate')
       }
       await repository.setDecision(eventId, candidateId)
       return reload(eventId)
@@ -116,7 +160,21 @@ export function createEventService({ repository, catalog, generateId, now }: Dep
 
     async reopen(eventId: string) {
       await require(eventId)
+      await repository.setReservation(eventId, undefined)
       await repository.setDecision(eventId, undefined)
+      return reload(eventId)
+    },
+
+    async reserve(eventId: string, input: ReserveInput) {
+      const event = await require(eventId)
+      if (!event.decidedCandidateId) throw new DomainError('conflict', 'decide a candidate before reserving')
+      await repository.setReservation(eventId, { ...input, reservedAt: now().toISOString() })
+      return reload(eventId)
+    },
+
+    async cancelReservation(eventId: string) {
+      await require(eventId)
+      await repository.setReservation(eventId, undefined)
       return reload(eventId)
     },
   }

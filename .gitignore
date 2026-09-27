@@ -37,5 +37,5 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 
-# pglite data dir (DATA_STORE=pglite)
+# PGlite data dir (pnpm dev:pglite / db:pglite)
 /.pglite/
