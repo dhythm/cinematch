@@ -1,0 +1,16 @@
+name: Setup
+description: Node.js と pnpm を用意して依存関係をインストールする（各ジョブ共通）
+
+runs:
+  using: composite
+  steps:
+    # pnpm のバージョンは package.json の packageManager から解決する
+    - uses: pnpm/action-setup@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - run: pnpm install --frozen-lockfile
+      shell: bash

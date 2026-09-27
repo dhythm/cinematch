@@ -5,8 +5,9 @@ import { hashOrganizerKey } from '@/server/domain/organizer-key'
 import { buildCandidates } from '@/server/domain/schedule'
 import { createDrizzleEventRepository } from '@/server/events/drizzle-event-repository'
 import type { StoredEvent } from '@/server/events/event-repository'
+import { upsertMovies } from '@/server/movies/movie-store'
 import type { Database } from './client'
-import { events, movies } from './schema'
+import { events } from './schema'
 
 type SeedMovie = Omit<Movie, 'releaseDate'> & { releaseOffsetDays: number }
 
@@ -129,12 +130,7 @@ export async function seedDatabase(db: Database, { today }: { today: () => strin
     ...movie,
     releaseDate: addDays(base, releaseOffsetDays),
   }))
-  await db.transaction(async (tx) => {
-    for (const movie of seedMovies) {
-      const values = { ...movie, originalTitle: movie.originalTitle ?? null, runtime: movie.runtime ?? null }
-      await tx.insert(movies).values(values).onConflictDoUpdate({ target: movies.id, set: values })
-    }
-  })
+  await upsertMovies(db, seedMovies)
 
   const repository = createDrizzleEventRepository(db)
   const [demoMovie] = seedMovies

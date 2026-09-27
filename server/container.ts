@@ -5,8 +5,8 @@ import { seedDatabase } from './db/seed'
 import { createDrizzleEventRepository } from './events/drizzle-event-repository'
 import { createEventService, type EventService } from './events/event-service'
 import { createDatabaseMovieProvider } from './movies/database-provider'
-import { createMovieCatalog, type MovieCatalog, type MovieProvider } from './movies/movie-catalog'
-import { createTmdbProvider } from './movies/tmdb-provider'
+import { createMovieCatalog, type MovieCatalog } from './movies/movie-catalog'
+import { syncExternalMovies } from './movies/movie-sync'
 
 export type Container = {
   catalog: MovieCatalog
@@ -15,10 +15,18 @@ export type Container = {
 
 const today = () => todayInJapan()
 
-function movieProviders(env: NodeJS.ProcessEnv, db: Database): MovieProvider[] {
-  const providers = [createDatabaseMovieProvider(db)]
-  if (env.TMDB_API_TOKEN) providers.push(createTmdbProvider({ token: env.TMDB_API_TOKEN }))
-  return providers
+/**
+ * 外部ソースの取り込みを起動時に一度だけ走らせる（開発用）。
+ * TMDB への数十リクエストで起動を待たせたくないので待ち受けず、結果はログに出すだけにする。
+ * 本番は cron から `pnpm movies:sync` を実行する。
+ */
+function syncInBackground(env: NodeJS.ProcessEnv, db: Database) {
+  void syncExternalMovies({ db, env, today })
+    .then(({ saved, failures }) => {
+      for (const { provider, error } of failures) console.error(`[movie-sync] ${provider} failed`, error)
+      if (saved > 0) console.log(`[movie-sync] saved ${saved} movies`)
+    })
+    .catch((error) => console.error('[movie-sync] failed', error))
 }
 
 async function createContainer(env: NodeJS.ProcessEnv): Promise<Container> {
@@ -27,7 +35,9 @@ async function createContainer(env: NodeJS.ProcessEnv): Promise<Container> {
   if (database.driver === 'pglite' || env.NODE_ENV !== 'production') await database.migrate()
   // 開発時はダミー映画とデモイベントを投入する（冪等）。本番や他環境では `pnpm db:seed`
   if (env.NODE_ENV !== 'production' && env.SEED !== 'false') await seedDatabase(database.db, { today })
-  const catalog = createMovieCatalog({ providers: movieProviders(env, database.db), today })
+  // カタログは DB だけを読む。外部ソース（TMDB）は movie-sync が DB に取り込む
+  const catalog = createMovieCatalog({ providers: [createDatabaseMovieProvider(database.db)], today })
+  if (env.NODE_ENV !== 'production') syncInBackground(env, database.db)
   const repository = createDrizzleEventRepository(database.db)
   const events = createEventService({
     repository,
