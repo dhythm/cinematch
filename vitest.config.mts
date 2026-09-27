@@ -11,6 +11,9 @@ export default defineConfig({
         test: {
           name: 'server',
           environment: 'node',
+          // PGlite（WASM）の初回起動 + マイグレーションに数秒かかる。CPU が混んだ環境でも落ちないよう余裕を持たせる
+          testTimeout: 15_000,
+          hookTimeout: 30_000,
           include: ['server/**/*.test.ts', 'lib/**/*.test.ts', 'app/**/*.test.ts'],
         },
       },

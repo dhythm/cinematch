@@ -1,11 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import type { Database } from '@/server/db/client'
 import { movies } from '@/server/db/schema'
 import { freshTestDatabase } from '@/server/db/testing'
 import { createDatabaseMovieProvider } from './database-provider'
 
 describe('createDatabaseMovieProvider', () => {
+  let db: Database
+
+  beforeEach(async () => {
+    db = await freshTestDatabase()
+  })
+
   it('公開日が範囲内の映画を返す', async () => {
-    const db = await freshTestDatabase()
     const base = { genres: ['SF'], poster: '/p.png', synopsis: 'あらすじ', source: 'eiga' as const }
     await db.insert(movies).values([
       { ...base, id: 'in', title: '範囲内', releaseDate: '2026-10-01', runtime: 120, distributor: '東邦' },

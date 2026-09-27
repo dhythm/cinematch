@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { EventSummary, EventView, Movie } from '@/lib/types'
+import { getContainer } from '@/server/container'
 import * as decision from './events/[id]/decision/route'
 import * as participantById from './events/[id]/participants/[participantId]/route'
 import * as participants from './events/[id]/participants/route'
@@ -17,15 +18,27 @@ const json = (method: string, body: unknown) =>
     headers: { 'content-type': 'application/json' },
   })
 
-beforeEach(() => {
+// PGlite（WASM）の起動・マイグレーション・シードは重いので、ファイル内で 1 つのコンテナを共有する。
+// 各テストは自分で作ったイベントだけを操作する（共有のデモイベントは書き換えない）
+beforeAll(async () => {
   vi.useFakeTimers({ now: new Date('2026-09-27T00:00:00+09:00'), toFake: ['Date'] })
   vi.stubEnv('DATABASE_URL', '')
   delete (globalThis as { __cinematchContainer?: unknown }).__cinematchContainer
-  return () => {
-    vi.useRealTimers()
-    vi.unstubAllEnvs()
-  }
+  await getContainer()
 })
+
+afterAll(() => {
+  delete (globalThis as { __cinematchContainer?: unknown }).__cinematchContainer
+  vi.useRealTimers()
+  vi.unstubAllEnvs()
+})
+
+async function createEvent() {
+  const response = await events.POST(
+    json('POST', { movieId: 'itetsuku', title: '観る会', dates: ['2026-10-09'], slots: ['noon', 'late'] }),
+  )
+  return (await response.json()) as EventView
+}
 
 describe('API', () => {
   it('GET /api/movies は調整可能な作品を返す', async () => {
@@ -89,22 +102,16 @@ describe('API', () => {
   })
 
   it('決定済みイベントへの回答は 409', async () => {
-    await decision.PUT(json('PUT', { candidateId: (await demoCandidateId()) ?? '' }), ctx('demo'))
+    const { id } = await createEvent()
+    await decision.PUT(json('PUT', { candidateId: '2026-10-09_noon' }), ctx(id))
 
-    const response = await participants.POST(json('POST', { name: 'x', answers: {} }), ctx('demo'))
+    const response = await participants.POST(json('POST', { name: 'x', answers: {} }), ctx(id))
 
     expect(response.status).toBe(409)
   })
 })
 
 describe('API: 更新・削除・予約', () => {
-  async function createEvent() {
-    const response = await events.POST(
-      json('POST', { movieId: 'itetsuku', title: '観る会', dates: ['2026-10-09'], slots: ['noon', 'late'] }),
-    )
-    return (await response.json()) as EventView
-  }
-
   it('PATCH でイベント情報を更新し、空文字で値を消せる', async () => {
     const { id } = await createEvent()
 
@@ -152,8 +159,3 @@ describe('API: 更新・削除・予約', () => {
     expect((await reservation.PUT(json('PUT', { theater: 'TOHO', showtime: '25:00' }), ctx(id))).status).toBe(400)
   })
 })
-
-async function demoCandidateId() {
-  const response = await eventById.GET(new Request('http://test'), ctx('demo'))
-  return ((await response.json()) as EventView).candidates[0]?.id
-}
