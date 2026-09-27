@@ -12,7 +12,7 @@ describe('createDatabaseMovieProvider', () => {
   })
 
   it('公開日が範囲内の映画を返す', async () => {
-    const base = { genres: ['SF'], poster: '/p.png', synopsis: 'あらすじ', source: 'eiga' as const }
+    const base = { genres: ['SF'], poster: '/p.png', synopsis: 'あらすじ', source: 'seed' as const }
     await db.insert(movies).values([
       { ...base, id: 'in', title: '範囲内', releaseDate: '2026-10-01', runtime: 120, distributor: '東邦' },
       { ...base, id: 'out', title: '範囲外', releaseDate: '2027-01-01' },
@@ -30,7 +30,7 @@ describe('createDatabaseMovieProvider', () => {
         poster: '/p.png',
         distributor: '東邦',
         synopsis: 'あらすじ',
-        source: 'eiga',
+        source: 'seed',
       },
     ])
   })

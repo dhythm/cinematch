@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
 import { DomainError, type DomainErrorCode } from './domain/errors'
 
-const STATUS: Record<DomainErrorCode, number> = { not_found: 404, invalid: 400, conflict: 409 }
+const STATUS: Record<DomainErrorCode, number> = { not_found: 404, invalid: 400, conflict: 409, forbidden: 403 }
 
 export type ApiError = { error: { code: DomainErrorCode; message: string } }
 

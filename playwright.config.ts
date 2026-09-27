@@ -26,6 +26,6 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     // 外部 API に依存せず、起動時にシードしたダミー映画で検証する
-    env: { TMDB_API_TOKEN: '', EIGA_ICS_URL: '' },
+    env: { TMDB_API_TOKEN: '' },
   },
 })

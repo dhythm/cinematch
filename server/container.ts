@@ -5,7 +5,6 @@ import { seedDatabase } from './db/seed'
 import { createDrizzleEventRepository } from './events/drizzle-event-repository'
 import { createEventService, type EventService } from './events/event-service'
 import { createDatabaseMovieProvider } from './movies/database-provider'
-import { createEigaIcsProvider } from './movies/eiga-ics-provider'
 import { createMovieCatalog, type MovieCatalog, type MovieProvider } from './movies/movie-catalog'
 import { createTmdbProvider } from './movies/tmdb-provider'
 
@@ -19,7 +18,6 @@ const today = () => todayInJapan()
 function movieProviders(env: NodeJS.ProcessEnv, db: Database): MovieProvider[] {
   const providers = [createDatabaseMovieProvider(db)]
   if (env.TMDB_API_TOKEN) providers.push(createTmdbProvider({ token: env.TMDB_API_TOKEN }))
-  if (env.EIGA_ICS_URL) providers.push(createEigaIcsProvider({ url: env.EIGA_ICS_URL }))
   return providers
 }
 

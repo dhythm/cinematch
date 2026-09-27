@@ -1,8 +1,10 @@
+import { eq } from 'drizzle-orm'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { verifyOrganizerKey } from '@/server/domain/organizer-key'
 import { createDrizzleEventRepository } from '@/server/events/drizzle-event-repository'
 import type { Database } from './client'
-import { movies } from './schema'
-import { DEMO_EVENT_ID, seedDatabase } from './seed'
+import { events, movies } from './schema'
+import { DEMO_EVENT_ID, DEMO_ORGANIZER_KEY, seedDatabase } from './seed'
 import { freshTestDatabase } from './testing'
 
 const today = () => '2026-09-27'
@@ -43,5 +45,15 @@ describe('seedDatabase', () => {
 
     const demo = await repository.findById(DEMO_EVENT_ID)
     expect(demo?.participants.some((p) => p.id === 'added')).toBe(true)
+  })
+
+  it('デモイベントは開発用の固定幹事キーで幹事になれる（キーの無い既存デモにも付与する）', async () => {
+    await seedDatabase(db, { today })
+    await db.update(events).set({ organizerKeyHash: null }).where(eq(events.id, DEMO_EVENT_ID))
+
+    await seedDatabase(db, { today })
+
+    const demo = await createDrizzleEventRepository(db).findById(DEMO_EVENT_ID)
+    expect(verifyOrganizerKey(DEMO_ORGANIZER_KEY, demo?.organizerKeyHash)).toBe(true)
   })
 })

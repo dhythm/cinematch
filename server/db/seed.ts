@@ -1,9 +1,12 @@
+import { and, eq, isNull } from 'drizzle-orm'
 import { addDays } from '@/lib/date'
-import type { Movie, ScheduleEvent } from '@/lib/types'
+import type { Movie } from '@/lib/types'
+import { hashOrganizerKey } from '@/server/domain/organizer-key'
 import { buildCandidates } from '@/server/domain/schedule'
 import { createDrizzleEventRepository } from '@/server/events/drizzle-event-repository'
+import type { StoredEvent } from '@/server/events/event-repository'
 import type { Database } from './client'
-import { movies } from './schema'
+import { events, movies } from './schema'
 
 type SeedMovie = Omit<Movie, 'releaseDate'> & { releaseOffsetDays: number }
 
@@ -18,7 +21,7 @@ const SEED_MOVIES: SeedMovie[] = [
     poster: '/posters/p2.png',
     distributor: '東邦アニメーション',
     synopsis: '海辺の町で過ごす最後の夏。屋上で交わした約束が、ふたりの未来を静かに変えていく。',
-    source: 'eiga',
+    source: 'seed',
   },
   {
     id: 'itetsuku',
@@ -30,7 +33,7 @@ const SEED_MOVIES: SeedMovie[] = [
     poster: '/posters/p1.png',
     distributor: 'ワーナー配給',
     synopsis: '環を持つ惑星の氷の海に取り残された宇宙飛行士。帰還までの残り時間はわずか72時間。',
-    source: 'tmdb',
+    source: 'seed',
   },
   {
     id: 'last-highway',
@@ -42,7 +45,7 @@ const SEED_MOVIES: SeedMovie[] = [
     poster: '/posters/p6.png',
     distributor: 'ソニー配給',
     synopsis: '砂漠を貫く一本道。追う者と追われる者、止まった方が負けのデスレースが始まる。',
-    source: 'tmdb',
+    source: 'seed',
   },
   {
     id: 'amayo',
@@ -53,7 +56,7 @@ const SEED_MOVIES: SeedMovie[] = [
     poster: '/posters/p3.png',
     distributor: '松竹映画',
     synopsis: 'ネオンが滲む新宿の路地裏。雨の夜にだけ現れる依頼人を、ひとりの探偵が追う。',
-    source: 'eiga',
+    source: 'seed',
   },
   {
     id: 'levia',
@@ -64,7 +67,7 @@ const SEED_MOVIES: SeedMovie[] = [
     poster: '/posters/p4.png',
     distributor: '東邦',
     synopsis: '東京湾に突如現れた巨大生物。首都機能が麻痺する中、人類最後の作戦が動き出す。',
-    source: 'eiga',
+    source: 'seed',
   },
   {
     id: 'chochin',
@@ -75,13 +78,15 @@ const SEED_MOVIES: SeedMovie[] = [
     poster: '/posters/p5.png',
     distributor: 'ギャガ配給',
     synopsis: '灯りのともる不思議な森で、迷子の少女と小さなキツネが出会う、ひと夏の冒険。',
-    source: 'eiga',
+    source: 'seed',
   },
 ]
 
 export const DEMO_EVENT_ID = 'demo'
+/** 開発用デモの幹事キー。/e/demo/organizer?key=demo-organizer-key で幹事として開ける（シードは本番では実行しない） */
+export const DEMO_ORGANIZER_KEY = 'demo-organizer-key'
 
-function demoEvent(movie: Movie): ScheduleEvent {
+function demoEvent(movie: Movie): StoredEvent {
   const day = (offset: number) => addDays(movie.releaseDate, offset)
   const candidates = [
     ...buildCandidates([day(0), day(7)], ['late']),
@@ -108,6 +113,7 @@ function demoEvent(movie: Movie): ScheduleEvent {
       { id: 'demo-p2', name: 'けんと', answers: answersFor('oxo^oxoox') },
       { id: 'demo-p3', name: 'みお', comment: '土曜の夜は遅くても大丈夫', answers: answersFor('x^oooo^^o') },
     ],
+    organizerKeyHash: hashOrganizerKey(DEMO_ORGANIZER_KEY),
     createdAt: new Date().toISOString(),
   }
 }
@@ -115,7 +121,7 @@ function demoEvent(movie: Movie): ScheduleEvent {
 /**
  * 開発用データを投入する（冪等）。
  * - ダミー映画: 毎回 upsert し、公開日を「今日」基準に更新する
- * - デモイベント (/e/demo): 無いときだけ作る（触って増えた回答は残す）
+ * - デモイベント (/e/demo): 無いときだけ作る（触って増えた回答は残す）。幹事キーが無ければ付与する
  */
 export async function seedDatabase(db: Database, { today }: { today: () => string }) {
   const base = today()
@@ -135,4 +141,8 @@ export async function seedDatabase(db: Database, { today }: { today: () => strin
   if (demoMovie && !(await repository.findById(DEMO_EVENT_ID))) {
     await repository.insert(demoEvent(demoMovie))
   }
+  await db
+    .update(events)
+    .set({ organizerKeyHash: hashOrganizerKey(DEMO_ORGANIZER_KEY) })
+    .where(and(eq(events.id, DEMO_EVENT_ID), isNull(events.organizerKeyHash)))
 }
