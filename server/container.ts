@@ -6,11 +6,13 @@ import { createDrizzleEventRepository } from './events/drizzle-event-repository'
 import { createEventService, type EventService } from './events/event-service'
 import { createDatabaseMovieProvider } from './movies/database-provider'
 import { createMovieCatalog, type MovieCatalog } from './movies/movie-catalog'
-import { syncExternalMovies } from './movies/movie-sync'
+import { type SyncResult, syncExternalMovies } from './movies/movie-sync'
 
 export type Container = {
   catalog: MovieCatalog
   events: EventService
+  /** 外部ソース（TMDB）を DB に取り込む。cron から叩く */
+  syncMovies: () => Promise<SyncResult>
 }
 
 const today = () => todayInJapan()
@@ -19,8 +21,8 @@ const today = () => todayInJapan()
  * 実データの取り込みを起動時に一度だけ走らせる。
  * TMDB への数十リクエストで起動を待たせたくないので待ち受けず、結果はログに出すだけにする。
  */
-function syncInBackground(env: NodeJS.ProcessEnv, db: Database) {
-  void syncExternalMovies({ db, env, today })
+function syncInBackground(syncMovies: Container['syncMovies']) {
+  void syncMovies()
     .then(({ saved, failures }) => {
       for (const { provider, error } of failures) console.error(`[movie-sync] ${provider} failed`, error)
       if (saved > 0) console.log(`[movie-sync] saved ${saved} movies`)
@@ -37,9 +39,10 @@ async function createContainer(env: NodeJS.ProcessEnv): Promise<Container> {
   if (seeding) await seedDatabase(database.db, { today })
   // カタログは DB だけを読む。外部ソース（TMDB）は movie-sync が DB に取り込む
   const catalog = createMovieCatalog({ providers: [createDatabaseMovieProvider(database.db)], today })
+  const syncMovies = () => syncExternalMovies({ db: database.db, env, today })
   // シードするときはダミー映画だけで完結させ、外部 API は呼ばない。
   // シードしないとき（SEED=false）は実データを取り込む。本番はコールドスタートのたびに TMDB を叩かないよう cron に任せる
-  if (!seeding && env.NODE_ENV !== 'production') syncInBackground(env, database.db)
+  if (!seeding && env.NODE_ENV !== 'production') syncInBackground(syncMovies)
   const repository = createDrizzleEventRepository(database.db)
   const events = createEventService({
     repository,
@@ -47,7 +50,7 @@ async function createContainer(env: NodeJS.ProcessEnv): Promise<Container> {
     generateId: () => randomBytes(8).toString('base64url'),
     now: () => new Date(),
   })
-  return { catalog, events }
+  return { catalog, events, syncMovies }
 }
 
 // dev サーバーの HMR や Route Handler 間でインメモリ状態を共有するため globalThis に保持する
