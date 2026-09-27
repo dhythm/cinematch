@@ -1,12 +1,23 @@
 'use client'
 
 import { Check, Copy, Link2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { Button } from '@/components/ui/button'
+
+const noop = () => () => {}
+
+/** 本番・プレビュー・ローカルのどこでも、表示中のサイトの URL を共有する（SSR 時はパスのみ） */
+function useOrigin() {
+  return useSyncExternalStore(
+    noop,
+    () => window.location.origin,
+    () => '',
+  )
+}
 
 export function ShareBar({ eventId }: { eventId: string }) {
   const [copied, setCopied] = useState(false)
-  const url = `https://cinematch.app/e/${eventId}`
+  const url = `${useOrigin()}/e/${eventId}`
 
   async function copy() {
     try {

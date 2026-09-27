@@ -15,7 +15,7 @@ const loadEvent = cache(async (id: string) => {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const event = await loadEvent((await params).id)
-  return { title: event ? `${event.title} | しねまっち` : 'しねまっち' }
+  return { title: event ? `${event.title} | しねまっちゃん` : 'しねまっちゃん' }
 }
 
 export default async function EventPage({ params }: Props) {
