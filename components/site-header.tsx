@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { RecentEventsLink } from '@/components/recent-events-link'
 
 export function SiteHeader() {
   return (
@@ -19,12 +20,7 @@ export function SiteHeader() {
           >
             公開予定
           </Link>
-          <Link
-            href="/#my-events"
-            className="rounded-full px-2.5 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:px-3"
-          >
-            マイ調整
-          </Link>
+          <RecentEventsLink className="rounded-full px-2.5 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground sm:px-3" />
         </nav>
       </div>
     </header>
