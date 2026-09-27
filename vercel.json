@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "comment": "TMDB の公開予定作品を movies テーブルに取り込む。schedule は UTC なので 18:00 = JST 03:00",
       "path": "/api/cron/movies",
       "schedule": "0 18 * * *"
     }
