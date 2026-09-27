@@ -22,7 +22,7 @@ jobs:
     # DATABASE_URL は environment のシークレットとして持つ（保護ルールと履歴を付けられる）
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
 
       - name: Apply migrations
