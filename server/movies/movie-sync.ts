@@ -7,6 +7,8 @@ import { createTmdbProvider } from './tmdb-provider'
 type ProviderFailure = { provider: string; error: unknown }
 
 export type SyncResult = {
+  /** 実際に取りに行ったプロバイダ名。空なら取り込み元が設定されていない（TMDB_API_TOKEN の設定漏れ） */
+  providers: string[]
   /** DB に upsert した件数 */
   saved: number
   /** 取得に失敗したプロバイダ。呼び出し側がログや終了コードに使う */
@@ -34,7 +36,7 @@ export async function syncMovies({ db, providers, range }: Options): Promise<Syn
   })
   // プロバイダが範囲外を返すことがある（TMDB の discover は日本以外の公開日で絞ることがある）
   const inRange = fetched.filter((movie) => movie.releaseDate >= range.from && movie.releaseDate <= range.to)
-  return { saved: await upsertMovies(db, inRange), failures }
+  return { providers: providers.map((provider) => provider.name), saved: await upsertMovies(db, inRange), failures }
 }
 
 /** TMDB_API_TOKEN を参照する */

@@ -23,8 +23,10 @@ const today = () => todayInJapan()
  */
 function syncInBackground(syncMovies: Container['syncMovies']) {
   void syncMovies()
-    .then(({ saved, failures }) => {
+    .then(({ providers, saved, failures }) => {
       for (const { provider, error } of failures) console.error(`[movie-sync] ${provider} failed`, error)
+      // 0 件のまま静かに終わると設定漏れに気付けないので知らせる
+      if (providers.length === 0) console.warn('[movie-sync] 取り込み元がありません（TMDB_API_TOKEN 未設定）')
       if (saved > 0) console.log(`[movie-sync] saved ${saved} movies`)
     })
     .catch((error) => console.error('[movie-sync] failed', error))

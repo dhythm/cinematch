@@ -61,14 +61,15 @@ TMDB API ──▶ movie-sync（シード時 / cron: pnpm movies:sync）──�
   - `SEED=false pnpm dev` … シードせず、起動時にバックグラウンドで 1 回だけ実データを取り込む（起動を待たせない。結果はログ）
   - `pnpm movies:sync` … **手動実行用のエントリポイント**。マイグレーション済みの DB に対して実行する
   - 本番 … コールドスタートのたびに TMDB を叩かないよう起動時の取り込みはせず、Vercel Cron が毎日 `/api/cron/movies` を叩く（`vercel.json`、UTC 18:00 = JST 03:00）。`CRON_SECRET` が未設定だとこのエンドポイントは一律 401 を返す
-- 冪等なので何度実行してもよい。プロバイダ単位で失敗を切り離すので、1 つが落ちても残りは保存される（`movies:sync` は一部失敗で終了コード 1）。
+- 冪等なので何度実行してもよい。プロバイダ単位で失敗を切り離すので、1 つが落ちても残りは保存される（`movies:sync` は一部失敗で終了コード 1、cron は 500）。
+- `TMDB_API_TOKEN` の設定漏れは「0 件で成功」に見えてしまうので、取り込み元が 1 つも無いときは失敗として扱う（`movies:sync` は終了コード 1、cron は 500、開発時の起動は警告ログ）。
 
 ### API
 
 | メソッド | パス | 内容 |
 | --- | --- | --- |
 | GET | `/api/movies` | 調整できる作品（`movies` テーブル） |
-| GET | `/api/cron/movies` | TMDB の取り込み（Vercel Cron 専用。`CRON_SECRET` で認証） |
+| GET | `/api/cron/movies` | TMDB の取り込み（Vercel Cron 専用。`CRON_SECRET` で認証。取り込み元が未設定なら 500） |
 | メソッド | パス | 内容 | 権限 |
 | --- | --- | --- | --- |
 | GET / POST | `/api/events` | サマリー取得（`?ids=a,b`）/ イベント作成（作成者に幹事クッキーを発行） | 誰でも |

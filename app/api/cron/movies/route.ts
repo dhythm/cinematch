@@ -27,7 +27,12 @@ export function GET(request: Request) {
     if (!authorized(request)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
     const { syncMovies } = await getContainer()
-    const { saved, failures } = await syncMovies()
+    const { providers, saved, failures } = await syncMovies()
+    // 取り込み元が無いと 0 件のまま成功してしまい、設定漏れに気付けない（TMDB_API_TOKEN 未設定など）
+    if (providers.length === 0) {
+      console.error('[cron] 取り込み元が設定されていません（TMDB_API_TOKEN を設定してください）')
+      return NextResponse.json({ error: 'no movie provider configured' }, { status: 500 })
+    }
     for (const { provider, error } of failures) console.error(`[cron] ${provider} failed`, error)
     // 一部でも取れていなければ Vercel のダッシュボードで失敗として見えるようにする
     if (failures.length > 0) {
