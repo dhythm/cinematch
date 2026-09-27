@@ -28,6 +28,8 @@ export const events = pgTable('events', {
   memo: text(),
   deadline: date({ mode: 'string' }),
   decidedCandidateId: text(),
+  /** 幹事キーの SHA-256。キーそのものは保存しない（null は幹事のいない旧データ） */
+  organizerKeyHash: text(),
   createdAt: timestamp({ withTimezone: true }).notNull(),
 })
 

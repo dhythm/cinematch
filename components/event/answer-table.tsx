@@ -2,7 +2,7 @@
 
 import { Pencil } from 'lucide-react'
 import { ANSWER_SYMBOL, dayOfWeek, formatMonthDay, HOLIDAYS, SLOT_LABELS, weekday } from '@/lib/date'
-import type { Answer, Candidate, CandidateTally, Participant } from '@/lib/types'
+import type { Answer, Candidate, CandidateTally, Participant, TimeSlot } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 const ANSWER_STYLE: Record<Answer, string> = {
@@ -18,7 +18,8 @@ type Props = {
   bestId?: string
   decidedId?: string
   onEdit: (id: string) => void
-  onDecide: (id: string) => void
+  /** 幹事だけに渡す。未指定なら日程をクリックで決定できない */
+  onDecide?: (id: string) => void
 }
 
 export function AnswerTable({ candidates, participants, tallies, bestId, decidedId, onEdit, onDecide }: Props) {
@@ -66,8 +67,6 @@ export function AnswerTable({ candidates, participants, tallies, bestId, decided
             {candidates.map((c) => {
               const t = tallies[c.id] ?? { yes: 0, maybe: 0, no: 0 }
               const highlighted = c.id === highlightId
-              const dow = dayOfWeek(c.date)
-              const red = dow === 0 || c.date in HOLIDAYS
               return (
                 <tr key={c.id} className={cn('border-b border-border last:border-b-0', highlighted && 'bg-accent/35')}>
                   <th
@@ -77,25 +76,21 @@ export function AnswerTable({ candidates, participants, tallies, bestId, decided
                       highlighted ? 'bg-accent' : 'bg-card',
                     )}
                   >
-                    <button
-                      type="button"
-                      onClick={() => onDecide(c.id)}
-                      disabled={!!decidedId}
-                      className="flex items-baseline gap-1.5 text-left disabled:cursor-default"
-                      aria-label={`${formatMonthDay(c.date)} ${SLOT_LABELS[c.slot].label}に決定`}
-                      title={decidedId ? undefined : 'クリックでこの回に決定'}
-                    >
-                      <span className="font-mono">{formatMonthDay(c.date)}</span>
-                      <span
-                        className={cn(
-                          'text-xs',
-                          red ? 'text-destructive' : dow === 6 ? 'text-primary' : 'text-muted-foreground',
-                        )}
+                    {onDecide && !decidedId ? (
+                      <button
+                        type="button"
+                        onClick={() => onDecide(c.id)}
+                        className="flex items-baseline gap-1.5 text-left"
+                        aria-label={`${formatMonthDay(c.date)} ${SLOT_LABELS[c.slot].label}に決定`}
+                        title="クリックでこの回に決定"
                       >
-                        {`(${weekday(c.date)})`}
+                        <CandidateLabel date={c.date} slot={c.slot} />
+                      </button>
+                    ) : (
+                      <span className="flex items-baseline gap-1.5">
+                        <CandidateLabel date={c.date} slot={c.slot} />
                       </span>
-                      <span className="font-bold">{SLOT_LABELS[c.slot].label}</span>
-                    </button>
+                    )}
                   </th>
                   <td className="px-2 py-2.5 text-center font-mono text-xs whitespace-nowrap">
                     <span className="font-medium text-primary">{t.yes}</span>
@@ -127,5 +122,19 @@ export function AnswerTable({ candidates, participants, tallies, bestId, decided
         </ul>
       )}
     </section>
+  )
+}
+
+function CandidateLabel({ date, slot }: { date: string; slot: TimeSlot }) {
+  const dow = dayOfWeek(date)
+  const red = dow === 0 || date in HOLIDAYS
+  return (
+    <>
+      <span className="font-mono">{formatMonthDay(date)}</span>
+      <span className={cn('text-xs', red ? 'text-destructive' : dow === 6 ? 'text-primary' : 'text-muted-foreground')}>
+        {`(${weekday(date)})`}
+      </span>
+      <span className="font-bold">{SLOT_LABELS[slot].label}</span>
+    </>
   )
 }

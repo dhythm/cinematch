@@ -18,7 +18,7 @@ pnpm dev                     # http://localhost:3000 （/e/demo にデモイベ�
 ```
 Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ server/* ──▶ Drizzle ORM ──▶ PostgreSQL
    ▲                                                            │
-   └── Server Component で prefetch → HydrationBoundary ◀───────┘        MovieCatalog ──▶ movies テーブル / TMDB / 映画.com ICS
+   └── Server Component で prefetch → HydrationBoundary ◀───────┘        MovieCatalog ──▶ movies テーブル / TMDB API
 ```
 
 - **集計・検証・候補生成はすべてサーバー側**。クライアントはサーバーが返す集計済みの `EventView`（`tallies` / `best`）を表示するだけ。
@@ -32,7 +32,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 | `server/events/` | `EventService`（ユースケース）と `EventRepository`（Drizzle 実装 + 契約テスト） |
 | `server/db/` | Drizzle スキーマと DB 接続（`DATABASE_URL` → node-postgres / 未設定 → プロセス内 PGlite） |
 | `drizzle/` | drizzle-kit が生成するマイグレーション SQL |
-| `server/movies/` | `MovieCatalog`（TTL キャッシュ付き集約）と各プロバイダ（DB の movies テーブル / TMDB / 映画.com ICS） |
+| `server/movies/` | `MovieCatalog`（TTL キャッシュ付き集約）と各プロバイダ（DB の movies テーブル / TMDB） |
 | `server/container.ts` | 環境変数から依存を組み立て、`globalThis` に保持（HMR をまたいで DB 接続やキャッシュを維持） |
 | `lib/api/` | fetch クライアント、クエリキー、`queryOptions` / mutation hooks |
 | `components/` | UI（shadcn/ui ベース） |
@@ -41,8 +41,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 
 | 変数 | 説明 |
 | --- | --- |
-| `TMDB_API_TOKEN` | 設定すると TMDB discover API（region=JP）から取得 |
-| `EIGA_ICS_URL` | 設定すると映画.com の iCalendar から取得 |
+| `TMDB_API_TOKEN` | 設定すると TMDB から取得（discover region=JP → 作品詳細の release_dates で日本の公開日・上映時間を補完。日本公開の無い作品は除外） |
 | `SEED=false` | 開発時の起動時シードを止める |
 | `DATABASE_URL` | PostgreSQL の接続先。未設定ならプロセス内 PGlite |
 | `PGLITE_DATA_DIR` | `DATABASE_URL` 未設定時の PGlite 保存先。未指定ならメモリ |
@@ -52,14 +51,27 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 | メソッド | パス | 内容 |
 | --- | --- | --- |
 | GET | `/api/movies` | 調整できる作品（DB のシード映画 + 外部ソース） |
-| GET / POST | `/api/events` | サマリー取得（`?ids=a,b`）/ イベント作成 |
-| GET / PATCH / DELETE | `/api/events/:id` | 取得 / イベント情報の更新 / 削除 |
-| POST | `/api/events/:id/participants` | 回答の追加（`id` 指定で更新） |
-| DELETE | `/api/events/:id/participants/:participantId` | 回答の削除 |
-| PUT / DELETE | `/api/events/:id/decision` | 日程の決定 / 調整の再開（予約も解除） |
-| PUT / DELETE | `/api/events/:id/reservation` | 決定した回の予約（劇場・上映開始・メモ・予約者）の記録 / 取り消し |
+| メソッド | パス | 内容 | 権限 |
+| --- | --- | --- | --- |
+| GET / POST | `/api/events` | サマリー取得（`?ids=a,b`）/ イベント作成（作成者に幹事クッキーを発行） | 誰でも |
+| GET | `/api/events/:id` | 取得 | 誰でも |
+| PATCH / DELETE | `/api/events/:id` | イベント情報の更新 / 削除 | 幹事 |
+| POST | `/api/events/:id/participants` | 回答の追加（`id` 指定で更新） | 誰でも |
+| DELETE | `/api/events/:id/participants/:participantId` | 回答の削除 | 誰でも |
+| PUT / DELETE | `/api/events/:id/decision` | 日程の決定 / 調整の再開（予約も解除） | 幹事 |
+| PUT / DELETE | `/api/events/:id/reservation` | 決定した回の予約（劇場・上映開始・メモ・予約者）の記録 / 取り消し | 幹事 |
+| GET | `/e/:id/organizer?key=…` | 幹事用 URL。キーが正しければ幹事クッキーを設定し、キーを消した `/e/:id` へリダイレクト | — |
 
-変更系はすべて集計済みの `EventView` を返す。決定後は回答の追加・削除はできず（409）、予約中は別の回に変更できない（409）。
+変更系はすべて集計済みの `EventView` を返す。決定後は回答の追加・削除はできず（409）、予約中は別の回に変更できない（409）。幹事でない人の幹事操作は 403。
+
+### 幹事（ログインなし）
+
+調整さんと同じくログインは不要。イベントの作成者だけを「幹事」として識別する。
+
+- 作成時にサーバーが幹事キー（256bit のランダム値）を発行し、DB には SHA-256 ハッシュだけを保存する（`events.organizer_key_hash`）
+- キーは作成者のブラウザに HttpOnly クッキー `organizer_<eventId>`（SameSite=Lax、1 年、本番のみ Secure）で保存する
+- 幹事の画面には「幹事用URL」（`/e/:id/organizer?key=…`）を表示する。別の端末や LINE のアプリ内ブラウザ、クッキーが消えたときはこの URL で幹事に戻れる
+- 開発用デモ `/e/demo` の幹事用 URL は `/e/demo/organizer?key=demo-organizer-key`
 
 ### データベース（Drizzle ORM）
 
@@ -76,6 +88,7 @@ Browser ── TanStack Query ──▶ app/api/* (Route Handlers) ──▶ ser
 - PGlite サーバーは複数接続に対応しているので、dev サーバー稼働中でも `pnpm db:query` / `psql` / `pnpm db:studio` で中身を見られる。
 - `drizzle-kit` と `pnpm db:query` は `DATABASE_URL` 未設定なら PGlite サーバーに接続する。
 - 本番（`NODE_ENV=production`）では起動時の自動マイグレーションをしないので、デプロイ手順で `pnpm db:migrate` を実行する。
+- 映画データの出典として、フッターに TMDB の表記（利用規約で必須）を出している。
 - シードデータ（`server/db/seed.ts`）: ダミー映画 6 本（公開日は実行日からの相対日）とデモイベント `/e/demo`。開発時は起動のたびに冪等に投入され、映画の公開日は今日基準に更新される。他の環境には `pnpm db:seed` で入れる。
 - スキーマ変更: `server/db/schema.ts` を編集 → `pnpm db:generate` → 生成された `drizzle/*.sql` をコミット。
 

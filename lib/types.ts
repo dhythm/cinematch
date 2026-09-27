@@ -1,4 +1,5 @@
-export type MovieSource = 'eiga' | 'tmdb'
+/** tmdb: TMDB API / seed: 開発用シードデータ */
+export type MovieSource = 'tmdb' | 'seed'
 
 export type Movie = {
   id: string
@@ -64,6 +65,10 @@ export type CandidateTally = {
 
 /** サーバーで集計済みのイベント。クライアントはこれを表示するだけ */
 export type EventView = ScheduleEvent & {
+  /** 閲覧者が幹事か（幹事キーのクッキーで判定） */
+  isOrganizer: boolean
+  /** 幹事のときだけ返す。幹事用 URL の表示に使う */
+  organizerKey?: string
   tallies: Record<string, CandidateTally>
   best?: { candidateId: string } & CandidateTally
 }
@@ -75,4 +80,5 @@ export type EventSummary = {
   respondentCount: number
   decidedCandidate?: Candidate
   reserved: boolean
+  isOrganizer: boolean
 }

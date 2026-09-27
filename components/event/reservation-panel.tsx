@@ -12,8 +12,9 @@ type Props = {
   reservation?: Reservation
   defaultReservedBy?: string
   pending: boolean
-  onReserve: (input: ReserveInput) => void
-  onCancel: () => void
+  /** 幹事だけに渡す。未指定なら予約済みの表示だけ（取り消し・登録フォームなし） */
+  onReserve?: (input: ReserveInput) => void
+  onCancel?: () => void
 }
 
 export function ReservationPanel({ reservation, defaultReservedBy, pending, onReserve, onCancel }: Props) {
@@ -44,17 +45,21 @@ export function ReservationPanel({ reservation, defaultReservedBy, pending, onRe
             </p>
           )}
         </div>
-        <Button type="button" variant="ghost" className="h-10" onClick={onCancel} disabled={pending}>
-          <X aria-hidden />
-          予約を取り消す
-        </Button>
+        {onCancel && (
+          <Button type="button" variant="ghost" className="h-10" onClick={onCancel} disabled={pending}>
+            <X aria-hidden />
+            予約を取り消す
+          </Button>
+        )}
       </section>
     )
   }
 
+  if (!onReserve) return null
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!theater.trim()) return
+    if (!theater.trim() || !onReserve) return
     onReserve({
       theater: theater.trim(),
       showtime: showtime || undefined,

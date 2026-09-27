@@ -36,7 +36,14 @@ export function MyEvents() {
                     <Image src={event.poster || '/placeholder.svg'} alt="" fill sizes="44px" className="object-cover" />
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <p className="truncate font-bold">{event.title}</p>
+                    <p className="flex items-center gap-2 font-bold">
+                      <span className="truncate">{event.title}</span>
+                      {event.isOrganizer && (
+                        <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] text-accent-foreground">
+                          幹事
+                        </span>
+                      )}
+                    </p>
                     <p className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Users className="size-3.5" aria-hidden />

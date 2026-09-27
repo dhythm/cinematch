@@ -15,8 +15,9 @@ type Props = {
   total: number
   decidedId?: string
   pending?: boolean
-  onDecide: (id: string) => void
-  onReopen: () => void
+  /** 幹事だけに渡す（未指定ならボタンを出さない） */
+  onDecide?: (id: string) => void
+  onReopen?: () => void
 }
 
 function candidateLabel(c: Candidate) {
@@ -64,10 +65,12 @@ export function DecisionPanel({
             <CalendarPlus aria-hidden />
             カレンダーに追加
           </Button>
-          <Button type="button" variant="ghost" className="h-10" onClick={onReopen} disabled={pending}>
-            <RotateCcw aria-hidden />
-            調整を再開
-          </Button>
+          {onReopen && (
+            <Button type="button" variant="ghost" className="h-10" onClick={onReopen} disabled={pending}>
+              <RotateCcw aria-hidden />
+              調整を再開
+            </Button>
+          )}
         </div>
       </section>
     )
@@ -99,14 +102,16 @@ export function DecisionPanel({
           <span className="ml-2 font-sans">{`（${total}人中）`}</span>
         </p>
       </div>
-      <Button
-        type="button"
-        className="h-11 px-6 font-bold"
-        onClick={() => onDecide(best.candidate.id)}
-        disabled={pending}
-      >
-        この回に決定する
-      </Button>
+      {onDecide && (
+        <Button
+          type="button"
+          className="h-11 px-6 font-bold"
+          onClick={() => onDecide(best.candidate.id)}
+          disabled={pending}
+        >
+          この回に決定する
+        </Button>
+      )}
     </section>
   )
 }

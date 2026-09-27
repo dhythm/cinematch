@@ -1,16 +1,18 @@
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
 import { EventScreen } from '@/components/event/event-screen'
 import { eventKeys } from '@/lib/api/keys'
 import { getContainer } from '@/server/container'
+import { readOrganizerKey } from '@/server/organizer-cookie'
 
 type Props = { params: Promise<{ id: string }> }
 
 const loadEvent = cache(async (id: string) => {
   const { events } = await getContainer()
-  return events.get(id)
+  return events.get(id, readOrganizerKey(await cookies(), id))
 })
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

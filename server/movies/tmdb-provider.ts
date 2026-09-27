@@ -28,35 +28,81 @@ const GENRES: Record<number, string> = {
   37: '西部劇',
 }
 
-type TmdbMovie = {
+type TmdbPage = { page: number; total_pages: number; results: { id: number }[] }
+
+type TmdbReleaseDate = { release_date: string; type: number }
+
+type TmdbMovieDetails = {
   id: number
   title: string
   original_title: string
-  release_date: string
-  poster_path: string | null
   overview: string
-  genre_ids: number[]
+  poster_path: string | null
+  runtime: number | null
+  genres: { id: number }[]
+  release_dates: { results: { iso_3166_1: string; release_dates: TmdbReleaseDate[] }[] }
 }
 
-type TmdbPage = { page: number; total_pages: number; results: TmdbMovie[] }
+/** release_dates の type: 3 = 劇場公開, 2 = 限定公開 */
+const THEATRICAL = 3
+const LIMITED = 2
+const DETAIL_CONCURRENCY = 8
 
-function toMovie(movie: TmdbMovie): Movie {
+/** 日本の劇場公開日（無ければ限定公開日）を YYYY-MM-DD で返す */
+function japaneseReleaseDate(details: TmdbMovieDetails) {
+  const dates = details.release_dates.results.find((r) => r.iso_3166_1 === 'JP')?.release_dates ?? []
+  const pick = (type: number) =>
+    dates
+      .filter((d) => d.type === type)
+      .map((d) => d.release_date.slice(0, 10))
+      .sort()[0]
+  return pick(THEATRICAL) ?? pick(LIMITED)
+}
+
+function toMovie(details: TmdbMovieDetails, releaseDate: string): Movie {
   return {
-    id: `tmdb-${movie.id}`,
-    title: movie.title,
-    originalTitle: movie.original_title !== movie.title ? movie.original_title : undefined,
-    releaseDate: movie.release_date,
-    genres: movie.genre_ids.flatMap((id) => GENRES[id] ?? []),
-    poster: movie.poster_path ? `${IMAGE_BASE}${movie.poster_path}` : '/placeholder.svg',
-    synopsis: movie.overview,
+    id: `tmdb-${details.id}`,
+    title: details.title,
+    originalTitle: details.original_title !== details.title ? details.original_title : undefined,
+    releaseDate,
+    runtime: details.runtime || undefined,
+    genres: details.genres.flatMap(({ id }) => GENRES[id] ?? []),
+    poster: details.poster_path ? `${IMAGE_BASE}${details.poster_path}` : '/placeholder.svg',
+    synopsis: details.overview,
     source: 'tmdb',
   }
+}
+
+/** 同時実行数を制限して map する（TMDB のレート制限対策） */
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>) {
+  const results: R[] = new Array(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const index = next++
+      results[index] = await fn(items[index] as T)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
 }
 
 type Options = { token: string; fetch?: typeof globalThis.fetch }
 
 export function createTmdbProvider({ token, fetch = globalThis.fetch }: Options): MovieProvider {
-  async function fetchPage(range: DateRange, page: number): Promise<TmdbPage> {
+  async function get<T>(url: URL): Promise<T> {
+    const response = await fetch(url, { headers: { authorization: `Bearer ${token}`, accept: 'application/json' } })
+    if (!response.ok) throw new Error(`TMDB request failed: ${response.status} ${url.pathname}`)
+    return (await response.json()) as T
+  }
+
+  function fetchDetails(id: number) {
+    const url = new URL(`${API_BASE}/movie/${id}`)
+    url.search = new URLSearchParams({ language: 'ja-JP', append_to_response: 'release_dates' }).toString()
+    return get<TmdbMovieDetails>(url)
+  }
+
+  function fetchPage(range: DateRange, page: number) {
     const url = new URL(`${API_BASE}/discover/movie`)
     url.search = new URLSearchParams({
       region: 'JP',
@@ -68,9 +114,7 @@ export function createTmdbProvider({ token, fetch = globalThis.fetch }: Options)
       sort_by: 'popularity.desc',
       page: String(page),
     }).toString()
-    const response = await fetch(url, { headers: { authorization: `Bearer ${token}`, accept: 'application/json' } })
-    if (!response.ok) throw new Error(`TMDB request failed: ${response.status}`)
-    return (await response.json()) as TmdbPage
+    return get<TmdbPage>(url)
   }
 
   return {
@@ -80,7 +124,14 @@ export function createTmdbProvider({ token, fetch = globalThis.fetch }: Options)
       const rest = await Promise.all(
         Array.from({ length: Math.min(first.total_pages, MAX_PAGES) - 1 }, (_, i) => fetchPage(range, i + 2)),
       )
-      return [first, ...rest].flatMap((page) => page.results.filter((m) => m.release_date).map(toMovie))
+      // discover の release_date は日本以外の公開日のことがあるので、作品詳細の release_dates で日本の公開日を取り直す
+      const ids = [...new Set([first, ...rest].flatMap((page) => page.results.map((m) => m.id)))]
+      const movies = await mapWithConcurrency(ids, DETAIL_CONCURRENCY, async (id) => {
+        const details = await fetchDetails(id)
+        const releaseDate = japaneseReleaseDate(details)
+        return releaseDate ? toMovie(details, releaseDate) : undefined
+      })
+      return movies.filter((movie): movie is Movie => movie !== undefined)
     },
   }
 }

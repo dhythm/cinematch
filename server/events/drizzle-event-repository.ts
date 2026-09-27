@@ -1,8 +1,8 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
-import type { Reservation, ScheduleEvent } from '@/lib/types'
+import type { Reservation } from '@/lib/types'
 import type { Database } from '@/server/db/client'
 import { candidates, events, participants, reservations } from '@/server/db/schema'
-import type { EventRepository } from './event-repository'
+import type { EventRepository, StoredEvent } from './event-repository'
 
 type EventRow = Awaited<ReturnType<ReturnType<typeof createFinder>>>[number]
 
@@ -28,7 +28,7 @@ function toReservation(row: NonNullable<EventRow['reservation']>): Reservation {
   }
 }
 
-function toScheduleEvent(row: EventRow): ScheduleEvent {
+function toStoredEvent(row: EventRow): StoredEvent {
   return {
     id: row.id,
     movie: row.movie,
@@ -37,6 +37,7 @@ function toScheduleEvent(row: EventRow): ScheduleEvent {
     memo: row.memo ?? undefined,
     deadline: row.deadline ?? undefined,
     decidedCandidateId: row.decidedCandidateId ?? undefined,
+    organizerKeyHash: row.organizerKeyHash ?? undefined,
     reservation: row.reservation ? toReservation(row.reservation) : undefined,
     createdAt: row.createdAt.toISOString(),
     candidates: row.candidates.map(({ id, date, slot }) => ({ id, date, slot })),
@@ -54,7 +55,7 @@ export function createDrizzleEventRepository(db: Database): EventRepository {
 
   async function load(ids: string[]) {
     if (ids.length === 0) return []
-    return (await find(ids)).map(toScheduleEvent)
+    return (await find(ids)).map(toStoredEvent)
   }
 
   return {
@@ -68,6 +69,7 @@ export function createDrizzleEventRepository(db: Database): EventRepository {
           memo: event.memo,
           deadline: event.deadline,
           decidedCandidateId: event.decidedCandidateId,
+          organizerKeyHash: event.organizerKeyHash,
           createdAt: new Date(event.createdAt),
         })
         if (event.candidates.length > 0) {

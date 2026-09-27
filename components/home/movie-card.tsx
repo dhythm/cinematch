@@ -16,9 +16,11 @@ export function MovieCard({ movie }: { movie: Movie }) {
           sizes="(min-width: 1024px) 240px, (min-width: 640px) 30vw, 45vw"
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <span className="absolute top-2 left-2 rounded bg-primary/85 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-primary-foreground uppercase backdrop-blur">
-          {movie.source === 'eiga' ? 'eiga.com' : 'TMDB'}
-        </span>
+        {movie.source === 'tmdb' && (
+          <span className="absolute top-2 left-2 rounded bg-primary/85 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-primary-foreground uppercase backdrop-blur">
+            TMDB
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-1">
         <h4 className="font-bold leading-snug text-pretty">{movie.title}</h4>

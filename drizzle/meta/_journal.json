@@ -15,6 +15,13 @@
       "when": 1790489889962,
       "tag": "0001_movies_and_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790493825753,
+      "tag": "0002_organizer_key",
+      "breakpoints": true
     }
   ]
 }

@@ -85,7 +85,22 @@ export function EventBoard({ event }: { event: EventView }) {
         </p>
       )}
 
-      <ShareBar eventId={event.id} />
+      <ShareBar path={`/e/${event.id}`} label="共有URL" />
+
+      {event.isOrganizer && event.organizerKey && (
+        <section aria-labelledby="organizer-url-title" className="flex flex-col gap-2">
+          <h2 id="organizer-url-title" className="flex items-center gap-2 text-sm font-bold">
+            <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">幹事</span>
+            幹事用URL
+            <span className="text-xs font-normal text-muted-foreground">他の人には共有しない</span>
+          </h2>
+          <ShareBar
+            path={`/e/${event.id}/organizer?key=${encodeURIComponent(event.organizerKey)}`}
+            label="幹事用URL"
+            secret
+          />
+        </section>
+      )}
 
       <DecisionPanel
         movie={event.movie}
@@ -94,8 +109,8 @@ export function EventBoard({ event }: { event: EventView }) {
         total={event.participants.length}
         decidedId={event.decidedCandidateId}
         pending={decide.isPending || reopen.isPending}
-        onDecide={handleDecide}
-        onReopen={() => reopen.mutate(undefined, { onError: showError })}
+        onDecide={event.isOrganizer ? handleDecide : undefined}
+        onReopen={event.isOrganizer ? () => reopen.mutate(undefined, { onError: showError }) : undefined}
       />
 
       {event.decidedCandidateId && (
@@ -103,10 +118,13 @@ export function EventBoard({ event }: { event: EventView }) {
           reservation={event.reservation}
           defaultReservedBy={event.organizer}
           pending={reserve.isPending || cancelReservation.isPending}
-          onReserve={(input) =>
-            reserve.mutate(input, { onSuccess: () => toast.success('予約を記録しました'), onError: showError })
+          onReserve={
+            event.isOrganizer
+              ? (input) =>
+                  reserve.mutate(input, { onSuccess: () => toast.success('予約を記録しました'), onError: showError })
+              : undefined
           }
-          onCancel={() => cancelReservation.mutate(undefined, { onError: showError })}
+          onCancel={event.isOrganizer ? () => cancelReservation.mutate(undefined, { onError: showError }) : undefined}
         />
       )}
 
@@ -117,7 +135,7 @@ export function EventBoard({ event }: { event: EventView }) {
         bestId={event.best?.candidateId}
         decidedId={event.decidedCandidateId}
         onEdit={handleEdit}
-        onDecide={handleDecide}
+        onDecide={event.isOrganizer ? handleDecide : undefined}
       />
 
       {!event.decidedCandidateId && (
@@ -132,23 +150,25 @@ export function EventBoard({ event }: { event: EventView }) {
         />
       )}
 
-      <EventSettings
-        key={`${event.title}|${event.organizer}|${event.deadline}|${event.memo}`}
-        event={event}
-        pending={updateEvent.isPending || deleteEvent.isPending}
-        onSave={(input) =>
-          updateEvent.mutate(input, { onSuccess: () => toast.success('イベントを更新しました'), onError: showError })
-        }
-        onDelete={() =>
-          deleteEvent.mutate(undefined, {
-            onSuccess: () => {
-              toast.success('イベントを削除しました')
-              router.push('/')
-            },
-            onError: showError,
-          })
-        }
-      />
+      {event.isOrganizer && (
+        <EventSettings
+          key={`${event.title}|${event.organizer}|${event.deadline}|${event.memo}`}
+          event={event}
+          pending={updateEvent.isPending || deleteEvent.isPending}
+          onSave={(input) =>
+            updateEvent.mutate(input, { onSuccess: () => toast.success('イベントを更新しました'), onError: showError })
+          }
+          onDelete={() =>
+            deleteEvent.mutate(undefined, {
+              onSuccess: () => {
+                toast.success('イベントを削除しました')
+                router.push('/')
+              },
+              onError: showError,
+            })
+          }
+        />
+      )}
     </div>
   )
 }

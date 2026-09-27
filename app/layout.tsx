@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { DM_Mono, Zen_Maru_Gothic } from 'next/font/google'
 import { Providers } from '@/components/providers'
+import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
@@ -50,6 +51,7 @@ export default function RootLayout({
         <Providers>
           <SiteHeader />
           {children}
+          <SiteFooter />
         </Providers>
         <Toaster position="top-center" />
         {process.env.NODE_ENV === 'production' && <Analytics />}

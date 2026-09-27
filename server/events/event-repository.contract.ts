@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { ScheduleEvent } from '@/lib/types'
-import type { EventRepository } from './event-repository'
+import type { EventRepository, StoredEvent } from './event-repository'
 
-function sampleEvent(overrides: Partial<ScheduleEvent> = {}): ScheduleEvent {
+function sampleEvent(overrides: Partial<StoredEvent> = {}): StoredEvent {
   return {
     id: 'ev1',
     movie: {
@@ -42,6 +41,14 @@ export function describeEventRepositoryContract(name: string, create: () => Prom
       await repository.insert(sampleEvent())
 
       expect(await repository.findById('ev1')).toEqual(sampleEvent())
+    })
+
+    it('幹事キーのハッシュを保存でき、未設定なら undefined', async () => {
+      await repository.insert(sampleEvent({ id: 'with-key', organizerKeyHash: 'abc123' }))
+      await repository.insert(sampleEvent({ id: 'without-key' }))
+
+      expect((await repository.findById('with-key'))?.organizerKeyHash).toBe('abc123')
+      expect((await repository.findById('without-key'))?.organizerKeyHash).toBeUndefined()
     })
 
     it('存在しない ID は undefined', async () => {
