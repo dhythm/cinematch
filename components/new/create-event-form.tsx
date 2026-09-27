@@ -86,7 +86,7 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
       {
         onSuccess: (event) => {
           rememberEvent(event.id)
-          toast.success('調整ページを作成しました', { description: 'URLを仲間に共有しましょう' })
+          toast.success('イベントをつくりました', { description: 'URLを仲間に共有しましょう' })
           router.push(`/e/${event.id}`)
         },
         onError: (error) => toast.error(error.message),
@@ -102,7 +102,7 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
             <legend className="text-lg font-black">候補日</legend>
             <p className="text-sm text-muted-foreground">公開日からの期間を選び、行けそうな日をタップ</p>
           </div>
-          <div role="radiogroup" aria-label="調整期間" className="inline-flex rounded-lg bg-muted p-1">
+          <div role="radiogroup" aria-label="候補日の期間" className="inline-flex rounded-lg bg-muted p-1">
             {RANGE_OPTIONS.map((opt) => (
               <button
                 key={opt.days}
@@ -245,7 +245,7 @@ export function CreateEventForm({ movie }: { movie: Movie }) {
           disabled={createEvent.isPending || createEvent.isSuccess}
           className="h-12 w-full rounded-xl text-base font-bold shadow-lg"
         >
-          {createEvent.isPending || createEvent.isSuccess ? '作成中…' : `${candidateCount}枠で調整ページをつくる`}
+          {createEvent.isPending || createEvent.isSuccess ? '作成中…' : `${candidateCount}枠でイベントをつくる`}
         </Button>
       </div>
     </form>

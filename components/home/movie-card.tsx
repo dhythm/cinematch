@@ -6,7 +6,7 @@ import type { Movie } from '@/lib/types'
 export function MovieCard({ movie }: { movie: Movie }) {
   return (
     <article className="group h-full">
-      {/* カード全体（ポスター画像を含む）を調整ページへのリンクにする */}
+      {/* カード全体（ポスター画像を含む）をイベント作成ページへのリンクにする */}
       <Link
         href={`/new?movie=${movie.id}`}
         className="flex h-full flex-col gap-3 rounded-lg outline-offset-4 focus-visible:outline-2 focus-visible:outline-primary"
@@ -24,7 +24,7 @@ export function MovieCard({ movie }: { movie: Movie }) {
             className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-black/80 to-transparent px-3 pt-8 pb-3 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
             aria-hidden
           >
-            日程を調整する
+            この映画で日程をきめる
             <ArrowRight className="size-4" />
           </span>
         </div>

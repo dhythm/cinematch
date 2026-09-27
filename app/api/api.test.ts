@@ -51,7 +51,7 @@ async function createEvent() {
 }
 
 describe('API: 基本', () => {
-  it('GET /api/movies は調整可能な作品を返す', async () => {
+  it('GET /api/movies は候補にできる作品を返す', async () => {
     const response = await movies.GET()
     const body = (await response.json()) as { movies: Movie[] }
 

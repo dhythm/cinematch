@@ -68,7 +68,7 @@ export function DecisionPanel({
           {onReopen && (
             <Button type="button" variant="ghost" className="h-10" onClick={onReopen} disabled={pending}>
               <RotateCcw aria-hidden />
-              調整を再開
+              日程を選び直す
             </Button>
           )}
         </div>
